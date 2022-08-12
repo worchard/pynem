@@ -1,5 +1,12 @@
 from collections import defaultdict
-from typing import Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
+from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
+#from pynem.custom_types import Node, DirectedEdge, NodeSet  ##ADD THIS BACK IN!
+
+#Temporarily here
+Node = Hashable
+DirectedEdge = Tuple[Node, Node]
+NodeSet = Union[Hashable, Set[Hashable]]
+##
 
 import numpy as np
 
@@ -92,4 +99,78 @@ class SignalGraph:
         self._edges.update(edges)
         for i, j in edges:
             self._children[i].add(j)
-            self._parents[j].add(i)  
+            self._parents[j].add(i)
+
+    # === PROPERTIES
+    @property
+    def nodes(self) -> Set[Node]:
+        return set(self._nodes)
+
+    @property
+    def nnodes(self) -> int:
+        return len(self._nodes)
+
+    @property
+    def arcs(self) -> Set[DirectedEdge]:
+        return set(self._arcs)
+
+    @property
+    def num_edges(self) -> int:
+        return len(self._edges)
+
+    @property
+    def parents(self) -> Dict[Node, Set[Node]]:
+        return dict(self._parents)
+
+    @property
+    def children(self) -> Dict[Node, Set[Node]]:
+        return dict(self._children)
+
+    # === NODE PROPERTIES
+    def parents_of(self, nodes: NodeSet) -> Set[Node]:
+        """
+        Return all nodes that are parents of the node or set of nodes ``nodes``.
+        Parameters
+        ----------
+        nodes
+            A node or set of nodes.
+        See Also
+        --------
+        children_of
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph(edges={(1, 2), (2, 3)})
+        >>> g.parents_of(2)
+        {1}
+        >>> g.parents_of({2, 3})
+        {1, 2}
+        """
+        if isinstance(nodes, set):
+            return set.union(*(self._parents[n] for n in nodes))
+        else:
+            return self._parents[nodes].copy()
+
+    def children_of(self, nodes: NodeSet) -> Set[Node]:
+        """
+        Return all nodes that are children of the node or set of nodes ``nodes``.
+        Parameters
+        ----------
+        nodes
+            A node or set of nodes.
+        See Also
+        --------
+        parents_of
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph(edges={(1, 2), (2, 3)})
+        >>> g.children_of(1)
+        {2}
+        >>> g.children_of({1, 2})
+        {2, 3}
+        """
+        if isinstance(nodes, set):
+            return set.union(*(self._children[n] for n in nodes))
+        else:
+            return self._children[nodes].copy()
