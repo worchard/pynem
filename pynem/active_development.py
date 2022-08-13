@@ -382,7 +382,7 @@ class SignalGraph:
         
         direction:
             either 'up' or 'down' resulting in either ``node`` becoming parent of the newly split multinode or becoming
-            the child, respectively
+            the child, respectively. Defaults to 'up'.
 
         See Also
         --------
