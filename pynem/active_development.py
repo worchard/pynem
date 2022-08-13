@@ -196,7 +196,7 @@ class SignalGraph:
         node:
             node to be removed.
         ignore_error:
-            if True, ignore the KeyError raised when node is not in the DAG.
+            if True, ignore the KeyError raised when node is not in the SignalGraph.
         Examples
         --------
         >>> from pynem import SignalGraph
@@ -223,7 +223,7 @@ class SignalGraph:
 
     def add_edge(self, i: Node, j: Node):
         """
-        Add the edge ``i`` -> ``j`` to the DAG
+        Add the edge ``i`` -> ``j`` to the SignalGraph
         Parameters
         ----------
         i:
@@ -280,6 +280,57 @@ class SignalGraph:
         for i, j in edges:
             self._children[i].add(j)
             self._parents[j].add(i)
+    
+    def remove_edge(self, i: Node, j: Node, ignore_error=False):
+        """
+        Remove the edge ``i`` -> ``j``.
+        Parameters
+        ----------
+        i:
+            source of edge to be removed.
+        j:
+            target of edge to be removed.
+        ignore_error:
+            if True, ignore the KeyError raised when edge is not in the SignalGraph.
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph(edges={(1, 2)})
+        >>> g.remove_edge(1, 2)
+        >>> g.edges
+        set()
+        """
+        try:
+            self._edges.remove((i, j))
+            self._parents[j].remove(i)
+            self._children[i].remove(j)
+            self._neighbors[j].remove(i)
+            self._neighbors[i].remove(j)
+        except KeyError as e:
+            if ignore_error:
+                pass
+            else:
+                raise e
+
+    def remove_edges_from(self, edges: Iterable, ignore_error=False):
+        """
+        Remove each edge in ``edges`` from the SignalGraph.
+        Parameters
+        ----------
+        edges
+            The edges to be removed from the SignalGraph.
+        ignore_error:
+            if True, ignore the KeyError raised when an edges is not in the SignalGraph.
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph(edges={(1, 2), (2, 3), (3, 4)})
+        >>> g.remove_edges_from({(1, 2), (2, 3)})
+        >>> g.edges
+        {(3, 4)}
+        """
+        for i, j in edges:
+            self.remove_edges(i, j, ignore_error=ignore_error)
 
     def join_nodes(self, nodes_to_join: Set[Hashable]):
         """
