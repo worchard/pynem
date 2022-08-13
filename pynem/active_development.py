@@ -13,7 +13,7 @@ import numpy as np
 
 class SignalGraph:
     """
-    Base class for graphs on perturbed proteins.
+    Base class for graphs of perturbed proteins.
     """
 
     def __init__(self, nodes: Set = frozenset(), edges: Set = frozenset(), signal_graph = None):
