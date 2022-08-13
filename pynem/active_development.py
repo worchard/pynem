@@ -1,3 +1,4 @@
+from audioop import mul
 from collections import defaultdict
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
 #from pynem.custom_types import Node, DirectedEdge, NodeSet  ##ADD THIS BACK IN!
@@ -69,38 +70,6 @@ class SignalGraph:
             edges={(name_map[i], name_map[j]) for i, j in self._edges}
         )
 
-    def add_edges_from(self, edges: Iterable[Tuple]):
-        """
-        Add edges to the graph from the collection ``edges``.
-        Parameters
-        ----------
-        Edges:
-            collection of edges to be added.
-
-        See Also
-        --------
-        add_edge
-        Examples
-        --------
-        >>> from pynem import SignalGraph
-        >>> g = SignalGraph(edges={(1, 2)})
-        >>> g.add_edges_from({(1, 3), (2, 3)})
-        >>> g.edges
-        {(1, 2), (1, 3), (2, 3)}
-        """
-        if not isinstance(edges, set):
-            edges = {(i, j) for i, j in edges}
-        if len(edges) == 0:
-            return
-
-        sources, sinks = zip(*edges)
-        self._nodes.update(sources)
-        self._nodes.update(sinks)
-        self._edges.update(edges)
-        for i, j in edges:
-            self._children[i].add(j)
-            self._parents[j].add(i)
-
     # === PROPERTIES
     @property
     def nodes(self) -> Set[Node]:
@@ -111,8 +80,8 @@ class SignalGraph:
         return len(self._nodes)
 
     @property
-    def arcs(self) -> Set[DirectedEdge]:
-        return set(self._arcs)
+    def edges(self) -> Set[DirectedEdge]:
+        return set(self._edges)
 
     @property
     def num_edges(self) -> int:
@@ -174,3 +143,230 @@ class SignalGraph:
             return set.union(*(self._children[n] for n in nodes))
         else:
             return self._children[nodes].copy()
+    
+    # === GRAPH MODIFICATION
+    def add_node(self, node: Node):
+        """
+        Add ``node`` to the SignalGraph.
+        Parameters
+        ----------
+        node:
+            a hashable Python object
+        See Also
+        --------
+        add_nodes_from
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph()
+        >>> g.add_node(1)
+        >>> g.add_node(2)
+        >>> len(g.nodes)
+        2
+        """
+        self._nodes.add(node)
+
+    def add_nodes_from(self, nodes: Iterable):
+        """
+        Add nodes to the graph from the collection ``nodes``.
+        Parameters
+        ----------
+        nodes:
+            collection of nodes to be added.
+        See Also
+        --------
+        add_node
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph({1, 2})
+        >>> g.add_nodes_from({'a', 'b'})
+        >>> g.add_nodes_from(range(3, 6))
+        >>> g.nodes
+        {1, 2, 'a', 'b', 3, 4, 5}
+        """
+        for node in nodes:
+            self.add_node(node)
+
+    def remove_node(self, node: Node, ignore_error=False):
+        """
+        Remove the node ``node`` from the graph.
+        Parameters
+        ----------
+        node:
+            node to be removed.
+        ignore_error:
+            if True, ignore the KeyError raised when node is not in the DAG.
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph(edges={(1, 2)})
+        >>> g.remove_node(2)
+        >>> g.nodes
+        {1}
+        """
+        try:
+            self._nodes.remove(node)
+            for parent in self._parents[node]:
+                self._children[parent].remove(node)
+            for child in self._children[node]:
+                self._parents[child].remove(node)
+            self._parents.pop(node, None)
+            self._children.pop(node, None)
+            self._edges = {(i, j) for i, j in self._edges if i != node and j != node}
+
+        except KeyError as e:
+            if ignore_error:
+                pass
+            else:
+                raise e
+
+    def add_edge(self, i: Node, j: Node):
+        """
+        Add the edge ``i`` -> ``j`` to the DAG
+        Parameters
+        ----------
+        i:
+            source node of the edge
+        j:
+            target node of the edge
+        
+        See Also
+        --------
+        add_edges_from
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph({1, 2})
+        >>> g.add_edge(1, 2)
+        >>> g.edges
+        {(1, 2)}
+        """
+        self._nodes.add(i)
+        self._nodes.add(j)
+        self._edges.add((i, j))
+
+        self._children[i].add(j)
+        self._parents[j].add(i)
+
+    def add_edges_from(self, edges: Iterable[Tuple]):
+        """
+        Add edges to the graph from the collection ``edges``.
+        Parameters
+        ----------
+        edges:
+            collection of edges to be added.
+
+        See Also
+        --------
+        add_edge
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph(edges={(1, 2)})
+        >>> g.add_edges_from({(1, 3), (2, 3)})
+        >>> g.edges
+        {(1, 2), (1, 3), (2, 3)}
+        """
+        if not isinstance(edges, set):
+            edges = {(i, j) for i, j in edges}
+        if len(edges) == 0:
+            return
+
+        sources, sinks = zip(*edges)
+        self._nodes.update(sources)
+        self._nodes.update(sinks)
+        self._edges.update(edges)
+        for i, j in edges:
+            self._children[i].add(j)
+            self._parents[j].add(i)
+
+    def join_nodes(self, nodes_to_join: Set[Hashable]):
+        """
+        Join the nodes in the set ``nodes_to_join`` into a single multi-node.
+        Parameters
+        ----------
+        nodes_to_join:
+            set of nodes to be joined
+
+        See Also
+        --------
+        split_node
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph(edges={(1, 2), (2, 3)})
+        >>> g.join_nodes({1, 2})
+        >>> g.nodes
+        {3, frozenset({1, 2})}
+        """
+        join_generator = (n if isinstance(n, frozenset) else frozenset({n}) for n in nodes_to_join)
+        joined_node = frozenset.union(*join_generator)
+
+        children = self.children_of(nodes_to_join)
+        parents = self.parents_of(nodes_to_join)
+
+        from_parents = {(n, joined_node) for n in parents}
+        to_children = {(joined_node, n) for n in children}
+
+        self.add_edges_from(from_parents.union(to_children))
+        self._children[joined_node].update(children)
+        self._parents[joined_node].update(parents)
+
+        for n in nodes_to_join:
+            self.remove_node(n)
+    
+    def split_node(self, node: Node, multinode: FrozenSet[Node], direction: str = 'up'):
+        """
+        Split ``node`` off from ``multinode`` either 'up' (so that ``node`` is made a parent of the new node) or
+        'down' (so that ``node`` is made a child of the new node). Both nodes resulting from the split inherit all
+        the parents and children of the original multinode.
+        Parameters
+        ----------
+        node:
+            node to be split off
+
+        multinode:
+            multi-node from which the node is being split off
+        
+        direction:
+            either 'up' or 'down' resulting in either ``node`` becoming parent of the newly split multinode or becoming
+            the child, respectively
+
+        See Also
+        --------
+        join_nodes
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph(nodes = {frozenset({1,2}), 3}, edges = {(frozenset({1,2}), 3)})
+        >>> g.split_node(node = 1, multinode = frozenset({1,2}), direction = 'up')
+        >>> g.nodes, g.edges
+        ({1, 2, 3}, {(2, 3), (1, 2), (1, 3)})
+        """
+        if (multinode not in self._nodes) or (node not in multinode):
+            raise KeyError("Either {mn} not in graph or {n} not in {mn}".format(mn = multinode, n = node))
+
+        assert direction in ['up', 'down'], "direction must be either 'up' or 'down'"
+        
+        new_multinode = multinode.difference({node})
+        if len(new_multinode) == 1:
+            #This is just to unpack the multinode from the set when it is only length 1
+            for new_multinode in new_multinode:
+                break
+        
+        parents = self.parents_of(multinode)
+        children = self.children_of(multinode)
+
+        from_parents_to_node = {(n, node) for n in parents}
+        from_parents_to_new = {(n, new_multinode) for n in parents}
+        to_children_from_node = {(node, n) for n in children}
+        to_children_from_new = {(new_multinode, n) for n in children}
+        
+        self.add_edges_from({*from_parents_to_node, *from_parents_to_new, \
+                            *to_children_from_node, *to_children_from_new})
+
+        if direction == 'down':
+            self.add_edge(new_multinode, node)
+        
+        self.remove_node(multinode)
