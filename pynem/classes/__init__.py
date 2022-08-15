@@ -1,1 +1,1 @@
-from .signalgraph import *
+from .signalgraph import SignalGraph
