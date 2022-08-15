@@ -419,5 +419,7 @@ class SignalGraph:
 
         if direction == 'down':
             self.add_edge(new_multinode, node)
+        else:
+            self.add_edge(node, new_multinode)
         
         self.remove_node(multinode)
