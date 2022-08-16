@@ -1,4 +1,5 @@
 from pynem import SignalGraph
+import pytest
 
 def test_empty_signal_graph():
     g = SignalGraph()
@@ -76,8 +77,13 @@ def test_join_nodes():
     assert g.nodes == {frozenset({1,2}), 3, 4}
     assert g.edges == {(frozenset({1,2}), 3), (frozenset({1,2}), 4)}
 
-def test_split_node():
+def test_split_node_1():
     g = SignalGraph(edges={(frozenset({1,2}), 3), (frozenset({1,2}), 4)})
     g.split_node(1, frozenset({1,2}), 'up')
     assert g.nodes == {1,2,3,4}
     assert g.edges == {(1,2), (1,3), (1,4), (2,3), (2,4)}
+
+def test_split_node_2():
+    g = SignalGraph(edges={(frozenset({1,2}), 3), (frozenset({1,2}), 4)})
+    with pytest.raises(KeyError) as e_info:
+        g.split_node(1, frozenset({3}), 'up')
