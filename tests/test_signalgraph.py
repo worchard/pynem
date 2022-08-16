@@ -1,4 +1,4 @@
-from pynem.classes.signalgraph import SignalGraph
+from pynem import SignalGraph
 
 def test_remove_edge():
     g = SignalGraph(edges={(1,2), (2,3)})
