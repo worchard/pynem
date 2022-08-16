@@ -25,7 +25,7 @@ class SignalGraph:
             self._edges = set()
             self._parents = defaultdict(set)
             self._children = defaultdict(set)
-            self.add_edges_from(edges) ### COME BACK AND CHANGE!
+            self.add_edges_from(edges)
 
     def __eq__(self, other):
         if not isinstance(other, SignalGraph):

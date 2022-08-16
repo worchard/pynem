@@ -1,6 +1,8 @@
 from audioop import mul
 from collections import defaultdict
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
+
+from pynem.utils import core_utils
 from pynem.custom_types import *
 
 import numpy as np
@@ -23,9 +25,9 @@ class SignalGraph:
         else:
             self._nodes = set(nodes)
             self._edges = set()
-            self._parents = defaultdict(set)
-            self._children = defaultdict(set)
-            self.add_edges_from(edges) ### COME BACK AND CHANGE!
+            self._parents = defaultdict(set, {k: set() for k in self._nodes})
+            self._children = defaultdict(set, {k: set() for k in self._nodes})
+            self.add_edges_from(edges)
 
     def __eq__(self, other):
         if not isinstance(other, SignalGraph):
@@ -83,11 +85,11 @@ class SignalGraph:
 
     @property
     def parents(self) -> Dict[Node, Set[Node]]:
-        return dict(self._parents)
+        return core_utils.defdict2dict(self._parents, self._nodes)
 
     @property
     def children(self) -> Dict[Node, Set[Node]]:
-        return dict(self._children)
+        return core_utils.defdict2dict(self._children, self._nodes)
 
     # === NODE PROPERTIES
     def parents_of(self, nodes: NodeSet) -> Set[Node]:
