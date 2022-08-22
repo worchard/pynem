@@ -1,5 +1,6 @@
 from pynem import SignalGraph
 import pytest
+import numpy as np
 
 def test_empty_signal_graph():
     g = SignalGraph()
@@ -87,3 +88,14 @@ def test_split_node_2():
     g = SignalGraph(edges={(frozenset({1,2}), 3), (frozenset({1,2}), 4)})
     with pytest.raises(KeyError) as e_info:
         g.split_node(1, frozenset({3}), 'up')
+
+def test_to_adjacency():
+    g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
+    adj_test_mat = np.array([[1, 1, 1], [0, 1, 1],[0, 0, 1]])
+    adjacency_matrix, node_list = g.to_adjacency()
+    assert np.all(adjacency_matrix == adj_test_mat)
+
+def test_from_adjacency():
+    adjacency_matrix = np.array([[1, 1, 1], [0, 1, 1],[0, 0, 1]])
+    g = SignalGraph.from_adjacency(adjacency_matrix)
+    assert g.edges == {(0, 1), (0, 2), (1, 2)}

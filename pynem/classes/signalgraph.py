@@ -1,5 +1,6 @@
 from audioop import mul
 from collections import defaultdict
+import itertools as itr
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
 
 from pynem.utils import core_utils
@@ -55,7 +56,7 @@ class SignalGraph:
             A dictionary from the current name of each node to the desired name of each node.
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> sg = SignalGraph(edges={('a', 'b'), ('b', 'c')})
         >>> sg2 = sg.rename_nodes({'a': 1, 'b': 2, 'c': 3})
         >>> sg2.edges
@@ -104,7 +105,7 @@ class SignalGraph:
         children_of
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph(edges={(1, 2), (2, 3)})
         >>> g.parents_of(2)
         {1}
@@ -128,7 +129,7 @@ class SignalGraph:
         parents_of
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph(edges={(1, 2), (2, 3)})
         >>> g.children_of(1)
         {2}
@@ -153,7 +154,7 @@ class SignalGraph:
         add_nodes_from
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph()
         >>> g.add_node(1)
         >>> g.add_node(2)
@@ -174,7 +175,7 @@ class SignalGraph:
         add_node
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph({1, 2})
         >>> g.add_nodes_from({'a', 'b'})
         >>> g.add_nodes_from(range(3, 6))
@@ -195,7 +196,7 @@ class SignalGraph:
             if True, ignore the KeyError raised when node is not in the SignalGraph.
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph(edges={(1, 2)})
         >>> g.remove_node(2)
         >>> g.nodes
@@ -232,7 +233,7 @@ class SignalGraph:
         add_edges_from
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph({1, 2})
         >>> g.add_edge(1, 2)
         >>> g.edges
@@ -258,7 +259,7 @@ class SignalGraph:
         add_edge
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph(edges={(1, 2)})
         >>> g.add_edges_from({(1, 3), (2, 3)})
         >>> g.edges
@@ -290,7 +291,7 @@ class SignalGraph:
             if True, ignore the KeyError raised when edge is not in the SignalGraph.
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph(edges={(1, 2)})
         >>> g.remove_edge(1, 2)
         >>> g.edges
@@ -317,7 +318,7 @@ class SignalGraph:
             if True, ignore the KeyError raised when an edges is not in the SignalGraph.
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph(edges={(1, 2), (2, 3), (3, 4)})
         >>> g.remove_edges_from({(1, 2), (2, 3)})
         >>> g.edges
@@ -339,7 +340,7 @@ class SignalGraph:
         split_node
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph(edges={(1, 2), (2, 3)})
         >>> g.join_nodes({1, 2})
         >>> g.nodes
@@ -383,7 +384,7 @@ class SignalGraph:
         join_nodes
         Examples
         --------
-        >>> import pynem
+        >>> from pynem import SignalGraph
         >>> g = SignalGraph(nodes = {frozenset({1,2}), 3}, edges = {(frozenset({1,2}), 3)})
         >>> g.split_node(node = 1, multinode = frozenset({1,2}), direction = 'up')
         >>> g.nodes, g.edges
@@ -417,3 +418,66 @@ class SignalGraph:
             self.add_edge(node, new_multinode)
         
         self.remove_node(multinode)
+
+#Some extra methods
+
+    @classmethod
+    def from_adjacency(cls, adjacency_matrix: np.ndarray):
+        """
+        Return a SignalGraph with arcs given by ``adjacency_matrix``, i.e. i->j if ``adjacency_matrix[i,j] != 0``.
+        Parameters
+        ----------
+        adjacency_matrix:
+            Numpy array representing edges in the SignalGraph.
+        Examples
+        --------
+        >>> from pynem import SignalGraph
+        >>> import numpy as np
+        >>> adjacency_matrix = np.array([[0, 0, 1], [0, 0, 1], [0, 0, 0]])
+        >>> g = SignalGraph.from_adjacency(adjacency_matrix)
+        >>> g.edges
+        {(0, 2), (1, 2)}
+        """
+        nodes = set(range(adjacency_matrix.shape[0]))
+        edges = {(i, j) for i, j in itr.permutations(nodes, 2) if adjacency_matrix[i, j] != 0}
+        return SignalGraph(nodes=nodes, edges=edges)
+
+    def to_adjacency(self, node_list=None) -> Tuple[np.ndarray, list]:
+        """
+        Return the adjacency matrix for the SignalGraph.
+        Parameters
+        ----------
+        node_list:
+            List indexing the rows/columns of the matrix.
+        See Also
+        --------
+        from_adjacency
+        Return
+        ------
+        (adjacency_matrix, node_list)
+        Example
+        -------
+        >>> from pynem import SignalGraph
+        >>> g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
+        >>> adjacency_matrix, node_list = g.to_adjacency()
+        >>> adjacency_matrix
+        array([[1, 1, 1],
+               [0, 1, 1],
+               [0, 0, 1]])
+        >>> node_list
+        [1, 2, 3]
+        """
+        if not node_list:
+            node_list = sorted(self._nodes)
+        node2ix = {node: i for i, node in enumerate(node_list)}
+
+        shape = (len(self._nodes), len(self._nodes))
+        adjacency_matrix = np.zeros(shape, dtype=int)
+
+        for source, target in self._edges:
+            adjacency_matrix[node2ix[source], node2ix[target]] = 1
+        
+        #SignalGraphs are reflexive by definition
+        np.fill_diagonal(adjacency_matrix, 1)
+
+        return adjacency_matrix, node_list
