@@ -7,6 +7,7 @@ from pynem.utils import core_utils
 from pynem.custom_types import *
 
 import numpy as np
+import scipy.sparse as sps
 
 class SignalGraph:
     """
@@ -422,27 +423,43 @@ class SignalGraph:
 #Some extra methods
 
     @classmethod
-    def from_adjacency(cls, adjacency_matrix: np.ndarray):
+    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], node_list: List = None):
         """
         Return a SignalGraph with arcs given by ``adjacency_matrix``, i.e. i->j if ``adjacency_matrix[i,j] != 0``.
         Parameters
         ----------
         adjacency_matrix:
-            Numpy array representing edges in the SignalGraph.
+            Numpy array or sparse matrix representing edges in the SignalGraph.
         Examples
         --------
         >>> from pynem import SignalGraph
         >>> import numpy as np
         >>> adjacency_matrix = np.array([[0, 0, 1], [0, 0, 1], [0, 0, 0]])
-        >>> g = SignalGraph.from_adjacency(adjacency_matrix)
+        >>> g = SignalGraph.from_adjacency(adjacency_matrix, node_list = ['a', 'b', 'c'])
         >>> g.edges
-        {(0, 2), (1, 2)}
+        {('a', 'c'), ('b', 'c')}
         """
-        nodes = set(range(adjacency_matrix.shape[0]))
-        edges = {(i, j) for i, j in itr.permutations(nodes, 2) if adjacency_matrix[i, j] != 0}
-        return SignalGraph(nodes=nodes, edges=edges)
+        adj_mat_copy = adjacency_matrix.copy()
+        
+        #This removes self loops which are implicit in SignalGraphs
+        if isinstance(adj_mat_copy, np.ndarray):
+            np.fill_diagonal(adj_mat_copy, 0)
+        else:
+            adj_mat_copy.setdiag(0)
 
-    def to_adjacency(self, node_list=None) -> Tuple[np.ndarray, list]:
+        node_range = range(adj_mat_copy.shape[0])
+        nodes = set(node_range)
+        edges = {*zip(*adj_mat_copy.nonzero())}
+
+        out = SignalGraph(nodes=nodes, edges=edges)
+
+        if not node_list:
+            return out
+
+        node_rename_map = dict(zip(list(node_range), node_list))
+        return out.rename_nodes(node_rename_map)
+        
+    def to_adjacency(self, node_list: List = None) -> Tuple[np.ndarray, list]:
         """
         Return the adjacency matrix for the SignalGraph.
         Parameters

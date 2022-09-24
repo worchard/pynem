@@ -1,6 +1,7 @@
 from pynem import SignalGraph
 import pytest
 import numpy as np
+import scipy.sparse as sps
 
 def test_empty_signal_graph():
     g = SignalGraph()
@@ -97,5 +98,7 @@ def test_to_adjacency():
 
 def test_from_adjacency():
     adjacency_matrix = np.array([[1, 1, 1], [0, 1, 1],[0, 0, 1]])
-    g = SignalGraph.from_adjacency(adjacency_matrix)
-    assert g.edges == {(0, 1), (0, 2), (1, 2)}
+    sps_adjacency_matrix = sps.coo_matrix(adjacency_matrix)
+    g1 = SignalGraph.from_adjacency(adjacency_matrix)
+    g2 = SignalGraph.from_adjacency(sps_adjacency_matrix)
+    assert g1.edges == {(0, 1), (0, 2), (1, 2)} and g1.edges == g2.edges
