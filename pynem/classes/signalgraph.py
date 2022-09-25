@@ -1,6 +1,4 @@
-from audioop import mul
 from collections import defaultdict
-import itertools as itr
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
 
 from pynem.utils import core_utils
