@@ -488,12 +488,11 @@ class SignalGraph:
             edges = self._edges
         else:
             node2ix = {node: i for i, node in enumerate(node_list)}
-            keep_nodes = {node2ix[node] for node in node_list}
-            edges = {(source, target) for source, target in self._edges if source in node_list or target in keep_nodes}
+            edges = {(source, target) for source, target in self._edges if source in node_list or target in node_list}
 
         shape = (len(node_list), len(node_list))
         adjacency_matrix = np.zeros(shape, dtype=int)
-        
+
         for source, target in edges:
             adjacency_matrix[node2ix[source], node2ix[target]] = 1
         
