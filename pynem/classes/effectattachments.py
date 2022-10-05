@@ -50,8 +50,8 @@ class EffectAttachments(UserDict):
         Example
         -------
         >>> from pynem import EffectAttachments
-        >>> er = EffectReporters({'E1':'S1', 'E2':'S2', 'E3':'S3'}, signals = {'S4','S5','S6'})
-        >>> adjacency_matrix, signal_list, effect_list = er.to_adjacency()
+        >>> ea = EffectAttachments({'E1':'S1', 'E2':'S2', 'E3':'S3'}, signals = {'S4','S5','S6'})
+        >>> adjacency_matrix, signal_list, effect_list = ea.to_adjacency()
         >>> adjacency_matrix
         array([[1, 0, 0],
                [0, 1, 0],
