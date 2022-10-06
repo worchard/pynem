@@ -1,6 +1,7 @@
 from pynem import EffectAttachments
 import pytest
 import numpy as np
+import scipy.sparse as sps
 
 def test_empty_effectattachments():
     ea = EffectAttachments()
@@ -39,3 +40,16 @@ def test_to_adjacency():
     adj_test_mat = np.array([[0, 1], [0, 0], [0,0]])
     adjacency_matrix, signal_list, effect_list = ea.to_adjacency(signal_list=['S1', 'S3', 'S4'], effect_list = ['E2', 'E1'])
     assert np.all(adjacency_matrix == adj_test_mat)
+
+def test_from_adjacency():
+    adjacency_matrix = adjacency_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 0]])
+    sps_adjacency_matrix = sps.coo_matrix(adjacency_matrix)
+    ea1 = EffectAttachments.from_adjacency(adjacency_matrix, signal_list = ['S1', 'S2', 'S3', 'S4'], effect_list = ['E1', 'E2', 'E3'])
+    ea2 = EffectAttachments.from_adjacency(sps_adjacency_matrix, signal_list = ['S1', 'S2', 'S3', 'S4'], effect_list = ['E1', 'E2', 'E3'])
+    assert ea1 == ea2
+    assert ea1.data == {'E2': 'S1', 'E3': 'S2', 'E1': 'S3'}
+
+def test_from_adjacency_no_signal_list():
+    adjacency_matrix = adjacency_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 0]])
+    ea = EffectAttachments.from_adjacency(adjacency_matrix, effect_list = ['E1', 'E2', 'E3'])
+    assert ea.data == {'E2': 0, 'E3': 1, 'E1': 2}
