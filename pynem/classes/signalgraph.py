@@ -428,6 +428,8 @@ class SignalGraph:
         ----------
         adjacency_matrix:
             Numpy array or sparse matrix representing edges in the SignalGraph.
+        node_list:
+            Iterable indexing the column and rows of the adjacency matrix to be used as names of nodes in the SignalGraph.
         Examples
         --------
         >>> from pynem import SignalGraph

@@ -5,6 +5,7 @@ from pynem.utils import core_utils
 from pynem.custom_types import *
 
 import numpy as np
+from rsa import sign
 import scipy.sparse as sps
 
 class EffectAttachments(UserDict):
@@ -66,8 +67,9 @@ class EffectAttachments(UserDict):
             effect_map = {e: e for e in self.effects()}
         
         renamed_dict = {effect_map[e]: signal_map[s] for e, s in self.items()}
-        return EffectAttachments(renamed_dict, signals = signal_map.keys())
+        return EffectAttachments(renamed_dict, signals = signal_map.values())
 
+#Some extra methods
 
     def to_adjacency(self, signal_list: List = None, effect_list: List = None) -> Tuple[np.ndarray, list, list]:
         """
@@ -121,9 +123,46 @@ class EffectAttachments(UserDict):
 
         return adjacency_matrix, signal_list, effect_list
 
+    @classmethod
+    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], signal_list: List = [], effect_list: List = []):
+        """
+        Return an EffectAttachments object with assignments given by ``adjacency_matrix``.
+        Parameters
+        ----------
+        adjacency_matrix:
+            Numpy array or sparse matrix representing attachments to effect reporters: signals indexing the rows and effects indexing the columns.
+        signal_list:
+            Iterable indexing the rows of ``adjacency_matrix``
+        effect_list:
+            Iterable indexing the columns of ``adjacency_matrix``
+        Examples
+        --------
+        >>> from pynem import EffectAttachments
+        >>> import numpy as np
+        >>> adjacency_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 0]])
+        >>> ea = EffectAttachments.from_adjacency(adjacency_matrix, signal_list = ['S1', 'S2', 'S3', 'S4'], effect_list = ['E1', 'E2', 'E3'])
+        >>> ea
+        {'E2': 'S1', 'E3': 'S2', 'E1': 'S3'}, signals = {'S1', 'S2', 'S3', 'S4'}
+        """
+
+        signal_range = range(adjacency_matrix.shape[0])
+        effect_range = range(adjacency_matrix.shape[1])
+        attach_dict = dict({*zip(*adjacency_matrix.transpose().nonzero())})
+
+        out = EffectAttachments(attach_dict, signals = set(signal_range))
+
+        if not signal_list and not effect_list:
+            return out
+        
+        signal_rename_map = dict(zip(list(signal_range), signal_list))
+        effect_rename_map = dict(zip(list(effect_range), effect_list))
+
+        return out.rename_nodes(signal_map = signal_rename_map, effect_map = effect_rename_map)
+
     def effects(self):
         return set(self.keys())
     
+    # === PROPERTIES
     @property
     def signals(self):
         return self._signals
