@@ -90,6 +90,10 @@ class SignalGraph:
     @property
     def children(self) -> Dict[Node, Set[Node]]:
         return core_utils.defdict2dict(self._children, self._nodes)
+    
+    @property
+    def amat_tuple(self) -> Tuple[np.ndarray, list]:
+        return self._amat_tuple
 
     # === NODE PROPERTIES
     def parents_of(self, nodes: NodeSet) -> Set[Node]:
@@ -421,7 +425,7 @@ class SignalGraph:
 #Some extra methods
 
     @classmethod
-    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], node_list: List = None):
+    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], node_list: List = None, save: bool = True):
         """
         Return a SignalGraph with arcs given by ``adjacency_matrix``, i.e. i->j if ``adjacency_matrix[i,j] != 0``.
         Parameters
@@ -454,18 +458,27 @@ class SignalGraph:
         out = SignalGraph(nodes=nodes, edges=edges)
 
         if not node_list:
+            if save:
+                out._amat_tuple = (adj_mat_copy, node_list)
             return out
 
         node_rename_map = dict(zip(list(node_range), node_list))
-        return out.rename_nodes(node_rename_map)
+        out = out.rename_nodes(node_rename_map)
+
+        if save:
+            out._amat_tuple = (adj_mat_copy, node_list)
+
+        return out
         
-    def to_adjacency(self, node_list: List = None) -> Tuple[np.ndarray, list]:
+    def to_adjacency(self, node_list: List = None, save: bool = True) -> Tuple[np.ndarray, list]:
         """
         Return the adjacency matrix for the SignalGraph.
         Parameters
         ----------
         node_list:
             List indexing the rows/columns of the matrix.
+        save:
+            Boolean indicating whether the adjacency matrix and associated node_list should be saved as the ``SignalGraph.amat_tuple`` attribute
         See Also
         --------
         from_adjacency
@@ -499,5 +512,8 @@ class SignalGraph:
         
         #SignalGraphs are reflexive by definition
         np.fill_diagonal(adjacency_matrix, 1)
+
+        if save:
+            self._amat_tuple = (adjacency_matrix, node_list)
 
         return adjacency_matrix, node_list

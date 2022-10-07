@@ -102,6 +102,13 @@ def test_to_adjacency_node_list():
     adjacency_matrix, node_list = g.to_adjacency(node_list=[3,2])
     assert np.all(adjacency_matrix == adj_test_mat)
 
+def test_to_adjacency_save():
+    g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
+    adj_test_mat = np.array([[1, 0], [1, 1]])
+    adjacency_matrix, node_list = g.to_adjacency(node_list=[3,2])
+    assert np.all(g.amat_tuple[0] == adj_test_mat)
+    assert g.amat_tuple[1] == node_list
+
 def test_from_adjacency():
     adjacency_matrix = np.array([[1, 1, 1], [0, 1, 1],[0, 0, 1]])
     sps_adjacency_matrix = sps.coo_matrix(adjacency_matrix)
