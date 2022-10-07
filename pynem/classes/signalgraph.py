@@ -425,7 +425,7 @@ class SignalGraph:
 #Some extra methods
 
     @classmethod
-    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], node_list: List = None, save: bool = True):
+    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], node_list: List = None, save: bool = False):
         """
         Return a SignalGraph with arcs given by ``adjacency_matrix``, i.e. i->j if ``adjacency_matrix[i,j] != 0``.
         Parameters
@@ -434,6 +434,8 @@ class SignalGraph:
             Numpy array or sparse matrix representing edges in the SignalGraph.
         node_list:
             Iterable indexing the column and rows of the adjacency matrix to be used as names of nodes in the SignalGraph.
+        save:
+            Boolean indicating whether the adjacency matrix and associated node_list should be saved as the ``SignalGraph.amat_tuple`` attribute.
         Examples
         --------
         >>> from pynem import SignalGraph
@@ -470,7 +472,7 @@ class SignalGraph:
 
         return out
         
-    def to_adjacency(self, node_list: List = None, save: bool = True) -> Tuple[np.ndarray, list]:
+    def to_adjacency(self, node_list: List = None, save: bool = False) -> Tuple[np.ndarray, list]:
         """
         Return the adjacency matrix for the SignalGraph.
         Parameters

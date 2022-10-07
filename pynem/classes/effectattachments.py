@@ -71,7 +71,7 @@ class EffectAttachments(UserDict):
 
 #Some extra methods
 
-    def to_adjacency(self, signal_list: List = None, effect_list: List = None) -> Tuple[np.ndarray, list, list]:
+    def to_adjacency(self, signal_list: List = None, effect_list: List = None, save = False) -> Tuple[np.ndarray, list, list]:
         """
         Return the adjacency matrix for the effect reporter attachments for signals in ``signal_list`` and effects in ``effect_list``.
         Parameters
@@ -80,6 +80,8 @@ class EffectAttachments(UserDict):
             List indexing the rows of the matrix.
         effect_list:
             List indexing the columns of the matrix.
+        save:
+            Boolean indicating whether the adjacency matrix and associated node_list should be saved as the ``EffectAttachments.amat_tuple`` attribute
         See Also
         --------
         from_adjacency
@@ -120,11 +122,14 @@ class EffectAttachments(UserDict):
         
         for signal, effect in edges:
             adjacency_matrix[signal2ix[signal], effect2ix[effect]] = 1
+        
+        if save:
+            self._amat_tuple = (adjacency_matrix, signal_list, effect_list)
 
         return adjacency_matrix, signal_list, effect_list
 
     @classmethod
-    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], signal_list: List = [], effect_list: List = []):
+    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], signal_list: List = [], effect_list: List = [], save = False):
         """
         Return an EffectAttachments object with assignments given by ``adjacency_matrix``.
         Parameters
@@ -135,6 +140,8 @@ class EffectAttachments(UserDict):
             Iterable indexing the rows of ``adjacency_matrix``
         effect_list:
             Iterable indexing the columns of ``adjacency_matrix``
+        save:
+            Boolean indicating whether the adjacency matrix and associated node_list should be saved as the ``EffectAttachments.amat_tuple`` attribute
         Examples
         --------
         >>> from pynem import EffectAttachments
@@ -152,12 +159,17 @@ class EffectAttachments(UserDict):
         out = EffectAttachments(attach_dict, signals = set(signal_range))
 
         if not signal_list and not effect_list:
+            if save:
+                out._amat_tuple = (adjacency_matrix, signal_list, effect_list)
             return out
         
         signal_rename_map = dict(zip(list(signal_range), signal_list))
         effect_rename_map = dict(zip(list(effect_range), effect_list))
 
-        return out.rename_nodes(signal_map = signal_rename_map, effect_map = effect_rename_map)
+        out = out.rename_nodes(signal_map = signal_rename_map, effect_map = effect_rename_map)
+        if save:
+            out._amat_tuple = (adjacency_matrix, signal_list, effect_list)
+        return out
 
     def effects(self):
         return set(self.keys())
@@ -166,6 +178,10 @@ class EffectAttachments(UserDict):
     @property
     def signals(self):
         return self._signals
+    
+    @property
+    def amat_tuple(self):
+        return self._amat_tuple
 
 #Theta should be a mapping from effects -> signals so of the form theta[e] = s
 #as well as a matrix with s rows and e columns where theta_se means s is the parent of e

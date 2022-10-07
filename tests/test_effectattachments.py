@@ -41,6 +41,14 @@ def test_to_adjacency():
     adjacency_matrix, signal_list, effect_list = ea.to_adjacency(signal_list=['S1', 'S3', 'S4'], effect_list = ['E2', 'E1'])
     assert np.all(adjacency_matrix == adj_test_mat)
 
+def test_to_adjacency_save():
+    ea = EffectAttachments({'E1':'S1', 'E2':'S2', 'E3':'S3'}, signals = {'S4','S5','S6'})
+    adj_test_mat = np.array([[0, 1], [0, 0], [0,0]])
+    adjacency_matrix, signal_list, effect_list = ea.to_adjacency(signal_list=['S1', 'S3', 'S4'], effect_list = ['E2', 'E1'], save = True)
+    assert np.all(ea.amat_tuple[0] == adj_test_mat)
+    assert ea.amat_tuple[1] == signal_list
+    assert ea.amat_tuple[2] == effect_list
+
 def test_from_adjacency():
     adjacency_matrix = adjacency_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 0]])
     sps_adjacency_matrix = sps.coo_matrix(adjacency_matrix)
