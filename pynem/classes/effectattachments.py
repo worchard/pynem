@@ -71,7 +71,7 @@ class EffectAttachments(UserDict):
 
 #Some extra methods
 
-    def to_adjacency(self, signal_list: List = None, effect_list: List = None, save = False) -> Tuple[np.ndarray, list, list]:
+    def to_adjacency(self, signal_list: List = None, effect_list: List = None, save: bool = False) -> Tuple[np.ndarray, list, list]:
         """
         Return the adjacency matrix for the effect reporter attachments for signals in ``signal_list`` and effects in ``effect_list``.
         Parameters
@@ -129,7 +129,7 @@ class EffectAttachments(UserDict):
         return adjacency_matrix, signal_list, effect_list
 
     @classmethod
-    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], signal_list: List = [], effect_list: List = [], save = False):
+    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], signal_list: List = [], effect_list: List = [], save: bool = False):
         """
         Return an EffectAttachments object with assignments given by ``adjacency_matrix``.
         Parameters
