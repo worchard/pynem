@@ -12,7 +12,7 @@ class SignalGraph:
     Base class for graphs of perturbed proteins.
     """
 
-    def __init__(self, nodes: Set = frozenset(), edges: Set = frozenset(), signal_graph = None):
+    def __init__(self, nodes: Set[Node] = set(), edges: Set[Edge] = set(), signal_graph = None):
         if signal_graph is not None:
             self._nodes = set(signal_graph._nodes)
             self._edges = set(signal_graph._edges)
@@ -76,7 +76,7 @@ class SignalGraph:
         return len(self._nodes)
 
     @property
-    def edges(self) -> Set[DirectedEdge]:
+    def edges(self) -> Set[Edge]:
         return set(self._edges)
 
     @property
@@ -249,7 +249,7 @@ class SignalGraph:
         self._children[i].add(j)
         self._parents[j].add(i)
 
-    def add_edges_from(self, edges: Iterable[Tuple]):
+    def add_edges_from(self, edges: Union[Set[Edge], Iterable[Edge]]):
         """
         Add edges to the graph from the collection ``edges``.
         Parameters
@@ -425,7 +425,7 @@ class SignalGraph:
 #Some extra methods
 
     @classmethod
-    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], node_list: List = None, save: bool = False):
+    def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], node_list: List[Node] = list(), save: bool = False):
         """
         Return a SignalGraph with arcs given by ``adjacency_matrix``, i.e. i->j if ``adjacency_matrix[i,j] != 0``.
         Parameters
@@ -472,7 +472,7 @@ class SignalGraph:
 
         return out
         
-    def to_adjacency(self, node_list: List = None, save: bool = False) -> Tuple[np.ndarray, list]:
+    def to_adjacency(self, node_list: List[Node] = list(), save: bool = False) -> Tuple[np.ndarray, list]:
         """
         Return the adjacency matrix for the SignalGraph.
         Parameters
@@ -500,7 +500,7 @@ class SignalGraph:
         [1, 2, 3]
         """
         if not node_list:
-            node_list = sorted(self._nodes)
+            node_list = list(self._nodes)
             edges = self._edges
         else:
             edges = {(source, target) for source, target in self._edges if source in node_list and target in node_list}

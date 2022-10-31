@@ -26,7 +26,7 @@ class EffectAttachments(UserDict):
         self._signals.add(value)
         super().__setitem__(key, value)
 
-    def __init__(self, *args, signals: NodeSet = None, **kwargs):
+    def __init__(self, *args, signals: Set[Node] = set(), **kwargs):
         super().__init__(*args, **kwargs)
         if not signals:
             self._signals = set(self.values())
@@ -44,7 +44,7 @@ class EffectAttachments(UserDict):
     def __repr__(self):
         return str(self)
 
-    def rename_nodes(self, signal_map: Dict = None, effect_map: Dict = None):
+    def rename_nodes(self, signal_map: Dict[Node, Node] = dict(), effect_map: Dict[Node, Node] = dict()):
         """
         Rename the signals according to ``signal_map`` and the effects according to ``effect_map``.
         Parameters
@@ -67,11 +67,11 @@ class EffectAttachments(UserDict):
             effect_map = {e: e for e in self.effects()}
         
         renamed_dict = {effect_map[e]: signal_map[s] for e, s in self.items()}
-        return EffectAttachments(renamed_dict, signals = signal_map.values())
+        return EffectAttachments(renamed_dict, signals = set(signal_map.values()))
 
 #Some extra methods
 
-    def to_adjacency(self, signal_list: List = None, effect_list: List = None, save: bool = False) -> Tuple[np.ndarray, list, list]:
+    def to_adjacency(self, signal_list: List[Node] = list(), effect_list: List[Node] = list(), save: bool = False) -> Tuple[np.ndarray, list, list]:
         """
         Return the adjacency matrix for the effect reporter attachments for signals in ``signal_list`` and effects in ``effect_list``.
         Parameters
@@ -106,9 +106,9 @@ class EffectAttachments(UserDict):
         ['E1', 'E2', 'E3']
         """
         if not signal_list:
-            signal_list = sorted(self._signals)
+            signal_list = list(self._signals)
         if not effect_list:
-            effect_list = sorted(self.effects())
+            effect_list = list(self.effects())
         
         edges = self.items()
         if signal_list or effect_list:
