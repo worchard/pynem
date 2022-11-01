@@ -97,9 +97,9 @@ def test_to_adjacency():
     assert np.all(adjacency_matrix == adj_test_mat)
 
 def test_to_adjacency_node_list():
-    g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
+    g = SignalGraph(edges={(1, 2), (1, frozenset({3,4})), (2, frozenset({3,4}))})
     adj_test_mat = np.array([[1, 0], [1, 1]])
-    adjacency_matrix, node_list = g.to_adjacency(node_list=[3,2])
+    adjacency_matrix, node_list = g.to_adjacency(node_list=[frozenset({3,4}),2])
     assert np.all(adjacency_matrix == adj_test_mat)
 
 def test_to_adjacency_save():
