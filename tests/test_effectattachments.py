@@ -36,9 +36,9 @@ def test_rename_nodes():
 
 
 def test_to_adjacency():
-    ea = EffectAttachments({'E1':'S1', 'E2':'S2', 'E3':'S3'}, signals = {'S4','S5','S6'})
+    ea = EffectAttachments({'E1':'S1', 'E2':'S2', 'E3':frozenset({'S3', 'S7'})}, signals = {'S4','S5','S6'})
     adj_test_mat = np.array([[0, 1], [0, 0], [0,0]])
-    adjacency_matrix, signal_list, effect_list = ea.to_adjacency(signal_list=['S1', 'S3', 'S4'], effect_list = ['E2', 'E1'])
+    adjacency_matrix, signal_list, effect_list = ea.to_adjacency(signal_list=['S1', frozenset({'S3', 'S7'}), 'S4'], effect_list = ['E2', 'E1'])
     assert np.all(adjacency_matrix == adj_test_mat)
 
 def test_to_adjacency_save():
