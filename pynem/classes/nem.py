@@ -19,9 +19,12 @@ class NestedEffectsModel():
                 controls: Set = {'control'}, signals_column: str = 'signals', 
                 signal_graph: SignalGraph = None, effect_attachments: EffectAttachments = None, 
                 nem = None):
-
         if nem is not None:
-            pass
+            self._adata = nem._adata
+            self._signals = nem._signals
+            self._effects = nem._effects
+            self._signalgraph = nem._signalgraph
+            self._effectattachments = nem._effectattachments
         else:
             self._adata = adata
             self._signals = set(adata.obs[signals_column]).difference(controls)
@@ -40,7 +43,10 @@ class NestedEffectsModel():
         raise NotImplementedError
 
     def copy(self):
-        raise NotImplementedError
+        """
+        Return a copy of the current NestedEffectsModel.
+        """
+        return NestedEffectsModel(nem=self)
 
     def transitive_closure(self):
         raise NotImplementedError
