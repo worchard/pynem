@@ -50,7 +50,7 @@ def test_to_adjacency_save():
     assert ea.amat_tuple[2] == effect_list
 
 def test_from_adjacency():
-    adjacency_matrix = adjacency_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 0]])
+    adjacency_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 0]])
     sps_adjacency_matrix = sps.coo_matrix(adjacency_matrix)
     ea1 = EffectAttachments.from_adjacency(adjacency_matrix, signal_list = ['S1', 'S2', 'S3', 'S4'], effect_list = ['E1', 'E2', 'E3'])
     ea2 = EffectAttachments.from_adjacency(sps_adjacency_matrix, signal_list = ['S1', 'S2', 'S3', 'S4'], effect_list = ['E1', 'E2', 'E3'])
@@ -58,6 +58,11 @@ def test_from_adjacency():
     assert ea1.data == {'E2': 'S1', 'E3': 'S2', 'E1': 'S3'}
 
 def test_from_adjacency_no_signal_list():
-    adjacency_matrix = adjacency_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 0]])
+    adjacency_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 0]])
     ea = EffectAttachments.from_adjacency(adjacency_matrix, effect_list = ['E1', 'E2', 'E3'])
     assert ea.data == {'E2': 0, 'E3': 1, 'E1': 2}
+
+def test_fromeffects():
+    ea = EffectAttachments.fromeffects({'E1', 'E2', 'E3'}, signals = {'S1', 'S2', 'S3'}, value = 'S4')
+    assert ea.data == {'E1': 'S4', 'E2': 'S4', 'E3': 'S4'}
+    assert ea.signals == {'S1', 'S2', 'S3', 'S4'}
