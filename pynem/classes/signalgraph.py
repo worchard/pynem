@@ -25,8 +25,8 @@ class SignalGraph:
         else:
             self._nodes = set(nodes)
             self._edges = set()
-            self._parents = defaultdict(set, {k: set() for k in self._nodes})
-            self._children = defaultdict(set, {k: set() for k in self._nodes})
+            self._parents = defaultdict(set)
+            self._children = defaultdict(set)
             self.add_edges_from(edges)
 
     def __eq__(self, other):
