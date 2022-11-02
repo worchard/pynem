@@ -15,8 +15,23 @@ class NestedEffectsModel():
     Class uniting the separate elements of a Nested Effects Model in order to facilitate scoring and learning.
     """
 
-    def __init__(self, adata: ad.AnnData = None, signal_graph: SignalGraph = None, effect_attachments: EffectAttachments = None):
-        raise NotImplementedError
+    def __init__(self, adata: ad.AnnData, signals: Set = set(), effects: Set = set(),
+                controls: Set = {'control'}, signals_column: str = 'signals', 
+                signal_graph: SignalGraph = None, effect_attachments: EffectAttachments = None, 
+                nem = None):
+
+        if nem is not None:
+            pass
+        else:
+            self._adata = adata
+            self._signals = set(adata.obs[signals_column]).difference(controls)
+            self._effects = set(adata.var.index)
+            if signals:
+                self._signals.intersection_update(signals)
+            if effects:
+                self._effects.intersection_update(effects)
+            self._signalgraph = SignalGraph(nodes = self._signals)
+            self._effectattachments = EffectAttachments.fromeffects(effects, signals = self._signals)
 
     def predict(self):
         raise NotImplementedError
