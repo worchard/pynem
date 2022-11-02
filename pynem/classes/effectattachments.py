@@ -137,9 +137,9 @@ class EffectAttachments(UserDict):
         adjacency_matrix:
             Numpy array or sparse matrix representing attachments to effect reporters: signals indexing the rows and effects indexing the columns.
         signal_list:
-            Iterable indexing the rows of ``adjacency_matrix``
+            List indexing the rows of ``adjacency_matrix``
         effect_list:
-            Iterable indexing the columns of ``adjacency_matrix``
+            List indexing the columns of ``adjacency_matrix``
         save:
             Boolean indicating whether the adjacency matrix and associated node_list should be saved as the ``EffectAttachments.amat_tuple`` attribute
         Examples
@@ -170,6 +170,29 @@ class EffectAttachments(UserDict):
         if save:
             out._amat_tuple = (adjacency_matrix, signal_list, effect_list)
         return out
+    
+    @classmethod
+    def fromeffects(cls, effects: Iterable, signals: Set = set(), value=None):
+        """
+        Create a new EffectsAttachments object with effects from ``effects`` (with value set to ``value``) and unattached signals given by ``signals``.
+        Parameters
+        ----------
+        effects:
+            Iterable of the effects to be added to the new EffectsAttachments object
+        signals:
+            Set of unattached signals
+        value:
+            Value given to each effect (default None)
+        Examples
+        --------
+        >>> from pynem import EffectAttachments
+        >>> ea = EffectAttachments.fromeffects({'E1', 'E2', 'E3'}, signals = {'S1', 'S2', 'S3'})
+        >>> ea
+        {'E1': None, 'E2': None, 'E3': None}, signals = {None, 'S1', 'S2', 'S3'}
+        """
+        ea = super().fromkeys(effects, value)
+        ea._signals.update(signals)
+        return ea
 
     def effects(self):
         return set(self.keys())
