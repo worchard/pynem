@@ -43,7 +43,7 @@ class NestedEffectsModel():
                 self._effectattachments = effect_attachments
                 self._effects = effect_attachments.effects()
             else:
-                self._effectattachments = EffectAttachments.fromeffects(effects, signals = self._signals)
+                self._effectattachments = EffectAttachments.fromeffects(self._effects, signals = self._signals)
 
             assert self._signalgraph.nodes == self._effectattachments.signals.difference({None}), \
                 "Nodes of the signal graph must match the signals of the effect attachments"
