@@ -5,7 +5,6 @@ from pynem.utils import core_utils
 from pynem.custom_types import *
 
 import numpy as np
-from rsa import sign
 import scipy.sparse as sps
 
 class EffectAttachments(UserDict):
@@ -200,11 +199,11 @@ class EffectAttachments(UserDict):
     # === PROPERTIES
     @property
     def signals(self):
-        return self._signals
+        return set(self._signals)
     
     @property
     def amat_tuple(self):
-        return self._amat_tuple
+        return tuple(self._amat_tuple)
 
 #Theta should be a mapping from effects -> signals so of the form theta[e] = s
 #as well as a matrix with s rows and e columns where theta_se means s is the parent of e

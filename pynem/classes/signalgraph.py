@@ -93,7 +93,7 @@ class SignalGraph:
     
     @property
     def amat_tuple(self) -> Tuple[np.ndarray, list]:
-        return self._amat_tuple
+        return tuple(self._amat_tuple)
 
     # === NODE PROPERTIES
     def parents_of(self, nodes: NodeSet) -> Set[Node]:
