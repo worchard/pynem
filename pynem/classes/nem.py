@@ -14,11 +14,11 @@ class NestedEffectsModel():
     """
 
     def __init__(self, adata: ad.AnnData, signals: Set = set(), effects: Set = set(),
-                controls: Set = {'control'}, signals_column: str = 'signals', 
+                controls: Iterable = {'control'}, signals_column: str = 'signals', 
                 signal_graph: SignalGraph = None, effect_attachments: EffectAttachments = None, 
                 nem = None):
         self._controls = controls
-        self._signalscolumn = signals_column
+        self._signals_column = signals_column
         self._score = None
         if nem is not None:
             self._adata = nem._adata
@@ -28,7 +28,7 @@ class NestedEffectsModel():
             self._effect_attachments = nem._effect_attachments
         else:
             self._adata = adata
-            self._signals = set(adata.obs[signals_column]).difference(controls)
+            self._signals = set(adata.obs[signals_column]).difference(set(controls))
             self._effects = set(adata.var.index)
             
             if signals:
@@ -43,6 +43,7 @@ class NestedEffectsModel():
                 self._signal_graph = SignalGraph(nodes = self._signals)
             if effect_attachments:
                 self._effect_attachments = effect_attachments
+                self._signals = effect_attachments.signals
                 self._effects = effect_attachments.effects()
             else:
                 self._effect_attachments = EffectAttachments.fromeffects(self._effects, signals = self._signals)
