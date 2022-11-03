@@ -1,7 +1,7 @@
 from pynem import NestedEffectsModel, SignalGraph, EffectAttachments
 import pytest
 import numpy as np
-import scipy.sparse as sps
+import warnings
 import anndata as ad
 import pandas as pd
 
@@ -40,13 +40,15 @@ def test_nem_signal_graph_effect_attachments_init():
 
 def test_nem_copy():
     nem = NestedEffectsModel(adata = adata_example, signals_column='target', signal_graph=sg)
-    nem_copy = nem.copy()
-    assert nem.signals == nem_copy.signals
-    assert nem.effects == nem_copy.effects
-    assert nem.score == nem_copy.score
-    assert np.all(nem.adata.X == nem_copy.adata.X)
-    assert np.all(nem.adata.obs == nem_copy.adata.obs)
-    assert np.all(nem.adata.var.index == nem_copy.adata.var.index)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        nem_copy = nem.copy()
+        assert nem.signals == nem_copy.signals
+        assert nem.effects == nem_copy.effects
+        assert nem.score == nem_copy.score
+        assert np.all(nem.adata.X == nem_copy.adata.X)
+        assert np.all(nem.adata.obs == nem_copy.adata.obs)
+        assert np.all(nem.adata.var.index == nem_copy.adata.var.index)
 
 def test_nem_adata_signals():
     nem = NestedEffectsModel(adata = adata_example, signals_column='target', controls={'control', 'S0'})

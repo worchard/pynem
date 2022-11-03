@@ -64,7 +64,7 @@ class NestedEffectsModel():
         """
         Return a copy of the current NestedEffectsModel.
         """
-        return NestedEffectsModel(nem=self)
+        return NestedEffectsModel(adata = self.adata, nem=self)
 
     def transitive_closure(self):
         raise NotImplementedError
