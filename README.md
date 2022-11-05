@@ -1,7 +1,7 @@
 # PyNEM
 Python implementation of Nested Effects Models
 
-# Consists of two primary parts:
+### Consists of two primary parts:
 
 - Classes:
 	- Signal Graph: representing the graph over perturbed variables
