@@ -51,11 +51,35 @@ class NestedEffectsModel():
             assert self._signal_graph.nodes == self._effect_attachments.signals.difference({None}), \
                 "Nodes of the signal graph must match the signals of the effect attachments"
 
-    def predict(self, return_array: bool = False) -> Union[dict, np.ndarray]:
+    def predict_dict(self) -> Union[dict, np.ndarray]:
         """
-        Predict which effect reporters will be affcted by the perturbation of each signal, given a signal graph and effect attachments.
+        Predict which effect reporters will be affcted by the perturbation of each signal, given a signal graph and effect attachments, and return
+        dictionary where each key is a signal, and each value is the set of predicted perturbed effects.
+        ----------
+        See Also
+        --------
+        predict_array
+        Example
+        --------
         """
-        pass
+        raise NotImplementedError
+
+    def predict_array(self) -> np.ndarray:
+        """
+        Predict which effect reporters will be affcted by the perturbation of each signal, given a signal graph and effect attachments, and return
+        a tuple containing a prediction array, M, and lists indexing the rows (signals) and columns (effects) of the array. M_ij = 1 if effect j is 
+        predicted to be dependent on the perturbation of signal i, otherwise M_ij = 0. 
+        ----------
+        See Also
+        --------
+        predict_dict
+        Return
+        ------
+        (M, signal_list, effect_list)
+        Example
+        --------
+        """
+        raise NotImplementedError
 
     def score_model(self):
         raise NotImplementedError
