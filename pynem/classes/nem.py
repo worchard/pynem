@@ -51,7 +51,7 @@ class NestedEffectsModel():
             assert self._signal_graph.nodes == self._effect_attachments.signals.difference({None}), \
                 "Nodes of the signal graph must match the signals of the effect attachments"
 
-    def predict_dict(self) -> Union[dict, np.ndarray]:
+    def predict_dict(self) -> dict:
         """
         Predict which effect reporters will be affcted by the perturbation of each signal, given a signal graph and effect attachments, and return
         dictionary where each key is a signal, and each value is the set of predicted perturbed effects.
