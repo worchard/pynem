@@ -21,13 +21,13 @@ class NestedEffectsModel():
         self._signals_column = signals_column
         self._score = None
         if nem is not None:
-            self._adata = nem._adata
-            self._signals = nem._signals
-            self._effects = nem._effects
-            self._signal_graph = nem._signal_graph
-            self._effect_attachments = nem._effect_attachments
+            self._adata = nem.adata
+            self._signals = nem.signals
+            self._effects = nem.effects
+            self._signal_graph = nem.signal_graph
+            self._effect_attachments = nem.effect_attachments
         else:
-            self._adata = adata
+            self._adata = adata.copy()
             self._signals = set(adata.obs[signals_column]).difference(set(controls))
             self._effects = set(adata.var.index)
             
@@ -37,14 +37,14 @@ class NestedEffectsModel():
                 self._effects.intersection_update(effects)
             
             if signal_graph:
-                self._signal_graph = signal_graph
-                self._signals = signal_graph.nodes
+                self._signal_graph = signal_graph.copy()
+                self._signals = self._signal_graph.nodes
             else:
                 self._signal_graph = SignalGraph(nodes = self._signals)
             if effect_attachments:
-                self._effect_attachments = effect_attachments
-                self._signals = effect_attachments.signals
-                self._effects = effect_attachments.effects()
+                self._effect_attachments = effect_attachments.copy()
+                self._signals = self._effect_attachments.signals
+                self._effects = self._effect_attachments.effects()
             else:
                 self._effect_attachments = EffectAttachments.fromeffects(self._effects, signals = self._signals)
 
