@@ -13,7 +13,7 @@ class NestedEffectsModel():
     Class uniting the separate elements of a Nested Effects Model in order to facilitate scoring and learning.
     """
 
-    def __init__(self, adata: ad.AnnData, signals: Set = set(), effects: Set = set(),
+    def __init__(self, adata: ad.AnnData = ad.AnnData(), signals: Set = set(), effects: Set = set(),
                 controls: Iterable = {'control'}, signals_column: str = 'signals', 
                 signal_graph: SignalGraph = None, effect_attachments: EffectAttachments = None, 
                 nem = None):
@@ -28,8 +28,12 @@ class NestedEffectsModel():
             self._effect_attachments = nem.effect_attachments
         else:
             self._adata = adata.copy()
-            self._signals = set(adata.obs[signals_column]).difference(set(controls))
-            self._effects = set(adata.var.index)
+            if adata:
+                self._signals = set(adata.obs[signals_column]).difference(set(controls))
+                self._effects = set(adata.var.index)
+            else:
+                self._signals = signals
+                self._effects = effects
             
             if signals:
                 self._signals.intersection_update(signals)
@@ -133,3 +137,25 @@ class NestedEffectsModel():
     @property
     def score(self) -> float:
         return self._score
+
+
+    # # === SignalGraph methods
+    # def add_node(self, node: Node):
+    #     """
+    #     Add ``node`` to the SignalGraph.
+    #     Parameters
+    #     ----------
+    #     node:
+    #         a hashable Python object
+    #     See Also
+    #     --------
+    #     add_nodes_from
+    #     Examples
+    #     --------
+    #     >>> from pynem import NestedEffectsModel
+    #     >>> nem = SignalGraph()
+    #     >>> g.add_node(1)
+    #     >>> g.add_node(2)
+    #     >>> len(g.nodes)
+    #     2
+    #     """

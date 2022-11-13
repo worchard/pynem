@@ -20,6 +20,14 @@ adata_example.obs = pd.DataFrame({'sgRNA': replicates, 'target': signals})
 sg = SignalGraph(nodes = sig_set, edges = {('S0', 'S1'), ('S1', 'S2')})
 ea = EffectAttachments({'E0': 'S0', 'E1':'S1', 'E2':'S2', 'E3':'S3'})
 
+def test_empty_nem_init():
+    nem = NestedEffectsModel()
+    assert nem.signal_graph == SignalGraph()
+    assert nem.effect_attachments == EffectAttachments()
+    assert nem.signals == set()
+    assert nem.effects == set()
+    assert nem.score == None
+
 def test_adata_only_nem():
     nem = NestedEffectsModel(adata = adata_example, signals_column='target')
     assert nem.signal_graph == SignalGraph(nodes = sig_set)
