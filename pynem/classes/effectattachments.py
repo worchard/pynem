@@ -135,6 +135,47 @@ class EffectAttachments(UserDict):
 
         return adjacency_matrix, signal_list, effect_list
 
+    def add_signal(self, signal: Node):
+        """
+        Add ``signal`` to the EffectAttachments object.
+        Parameters
+        ----------
+        signal:
+            a hashable Python object
+        See Also
+        --------
+        add_signals_from
+        Examples
+        --------
+        from pynem import EffectAttachments
+        ea = EffectAttachments()
+        ea.add_signal('S1')
+        ea.signals
+        {'S1'}
+        """
+        self._signals.add(signal)
+    
+    def add_signals_from(self, signals: Iterable):
+        """
+        Add signals to the EffectAttachments from the collection ``signals``.
+        Parameters
+        ----------
+        signals:
+            collection of signals to be added.
+        See Also
+        --------
+        add_signal
+        Examples
+        --------
+        >>> from pynem import EffectAttachments
+        >>> ea = EffectAttachments()
+        >>> ea.add_signals_from({'S1', 'S2'})
+        >>> ea.signals
+        {'S1', 'S2'}
+        """
+        for s in signals:
+            self.add_signal(s)
+
     @classmethod
     def from_adjacency(cls, adjacency_matrix: Union[np.ndarray, sps.spmatrix], signal_list: List = [], effect_list: List = [], save: bool = False):
         """

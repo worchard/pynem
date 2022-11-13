@@ -66,3 +66,13 @@ def test_fromeffects():
     ea = EffectAttachments.fromeffects({'E1', 'E2', 'E3'}, signals = {'S1', 'S2', 'S3'}, value = 'S4')
     assert ea.data == {'E1': 'S4', 'E2': 'S4', 'E3': 'S4'}
     assert ea.signals == {'S1', 'S2', 'S3', 'S4'}
+
+def test_add_signal():
+    ea = EffectAttachments.fromeffects({'E1', 'E2', 'E3'}, signals = {'S1', 'S2', 'S3'})
+    ea.add_signal('S4')
+    assert ea.signals == {'S1', 'S2', 'S3', 'S4', None}
+
+def test_add_signals_from():
+    ea = EffectAttachments.fromeffects({'E1', 'E2', 'E3'}, signals = {'S1', 'S2', 'S3'})
+    ea.add_signals_from({'S4', 'S5'})
+    assert ea.signals == {'S1', 'S2', 'S3', 'S4', 'S5', None}
