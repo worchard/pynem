@@ -43,6 +43,14 @@ class EffectAttachments(UserDict):
     def __repr__(self):
         return str(self)
 
+    def copy(self):
+        """
+        Return a copy of the current EffectAttchments.
+        """
+        out = super().copy()
+        out._signals = self.signals
+        return out
+
     def rename_nodes(self, signal_map: Dict[Node, Node] = dict(), effect_map: Dict[Node, Node] = dict()):
         """
         Rename the signals according to ``signal_map`` and the effects according to ``effect_map``.
@@ -204,8 +212,3 @@ class EffectAttachments(UserDict):
     @property
     def amat_tuple(self):
         return tuple(self._amat_tuple)
-
-#Theta should be a mapping from effects -> signals so of the form theta[e] = s
-#as well as a matrix with s rows and e columns where theta_se means s is the parent of e
-#mapping must ensure that each e gene has exactly 1 parent - so values must be hashable
-#Also need that every value be out of a set of signals or None
