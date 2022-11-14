@@ -139,23 +139,25 @@ class NestedEffectsModel():
         return self._score
 
 
-    # # === SignalGraph methods
-    # def add_node(self, node: Node):
-    #     """
-    #     Add ``node`` to the SignalGraph.
-    #     Parameters
-    #     ----------
-    #     node:
-    #         a hashable Python object
-    #     See Also
-    #     --------
-    #     add_nodes_from
-    #     Examples
-    #     --------
-    #     >>> from pynem import NestedEffectsModel
-    #     >>> nem = SignalGraph()
-    #     >>> g.add_node(1)
-    #     >>> g.add_node(2)
-    #     >>> len(g.nodes)
-    #     2
-    #     """
+    # === SignalGraph methods
+    def add_signal(self, signal: Node):
+        """
+        Add ``signal`` to the SignalGraph and EffectAttachments.
+        Parameters
+        ----------
+        signal:
+            a hashable Python object
+        See Also
+        --------
+        add_signals_from
+        Examples
+        --------
+        >>> from pynem import NestedEffectsModel
+        >>> nem = NestedEffectsModel()
+        >>> nem.add_signal('S1')
+        >>> nem.signals
+        {'S1'}
+        """
+        self._signal_graph.add_node(signal)
+        self._effect_attachments.add_signal(signal)
+        self._signals.add(signal)

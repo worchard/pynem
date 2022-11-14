@@ -67,3 +67,8 @@ def test_signal_match():
     ea_copy['E1'] = 'S4'
     with pytest.raises(AssertionError) as e_info:
         nem = NestedEffectsModel(adata = adata_example, signals_column='target', signal_graph=sg, effect_attachments=ea_copy)
+
+def test_nem_add_signal():
+    nem = NestedEffectsModel()
+    nem.add_signal('S1')
+    assert nem.signals == {'S1'}
