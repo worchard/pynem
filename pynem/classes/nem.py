@@ -32,8 +32,8 @@ class NestedEffectsModel():
                 self._signals = set(adata.obs[signals_column]).difference(set(controls))
                 self._effects = set(adata.var.index)
             else:
-                self._signals = signals
-                self._effects = effects
+                self._signals = set(signals)
+                self._effects = set(effects)
             
             if signals:
                 self._signals.intersection_update(signals)
@@ -92,7 +92,7 @@ class NestedEffectsModel():
         """
         Return a copy of the current NestedEffectsModel.
         """
-        return NestedEffectsModel(adata = self.adata, nem=self)
+        return NestedEffectsModel(nem=self)
 
     def transitive_closure(self):
         raise NotImplementedError
@@ -139,7 +139,7 @@ class NestedEffectsModel():
         return self._score
 
 
-    # === SignalGraph methods
+    # === NEM manipulation
     def add_signal(self, signal: Node):
         """
         Add ``signal`` to the SignalGraph and EffectAttachments.
@@ -161,3 +161,25 @@ class NestedEffectsModel():
         self._signal_graph.add_node(signal)
         self._effect_attachments.add_signal(signal)
         self._signals.add(signal)
+
+    def add_signals_from(self, signals: Iterable):
+        """
+        Add signals to the SignalGraph and EffectAttachments from the collection ``signals``.
+        Parameters
+        ----------
+        signals:
+            collection of signals to be added.
+        See Also
+        --------
+        add_signal
+        Examples
+        --------
+        >>> from pynem import NestedEffectsModel
+        >>> nem = NestedEffectsModel()
+        >>> nem.add_signals_from({'S1', 'S2'})
+        >>> nem.add_signals_from(range(3, 6))
+        >>> nem.signals
+        {'S1', 'S2', 3, 4, 5}
+        """
+        for signal in signals:
+            self.add_signal(signal)

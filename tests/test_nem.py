@@ -72,3 +72,8 @@ def test_nem_add_signal():
     nem = NestedEffectsModel()
     nem.add_signal('S1')
     assert nem.signals == {'S1'}
+
+def test_nem_add_signals_from():
+    nem = NestedEffectsModel()
+    nem.add_signals_from(range(3,10))
+    assert nem.signals == {3, 4, 5, 6, 7, 8, 9}
