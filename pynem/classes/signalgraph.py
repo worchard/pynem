@@ -13,6 +13,7 @@ class SignalGraph:
     """
 
     def __init__(self, nodes: Set[Node] = set(), edges: Set[Edge] = set(), signal_graph = None):
+        self._amat_tuple = None
         if signal_graph is not None:
             self._nodes = set(signal_graph._nodes)
             self._edges = set(signal_graph._edges)
@@ -22,6 +23,8 @@ class SignalGraph:
             self._children = defaultdict(set)
             for node, ch in signal_graph._children.items():
                 self._children[node] = set(ch)
+            self._amat_tuple = signal_graph.amat_tuple
+            
         else:
             self._nodes = set(nodes)
             self._edges = set()
