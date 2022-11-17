@@ -179,7 +179,313 @@ class NestedEffectsModel():
         >>> nem.add_signals_from({'S1', 'S2'})
         >>> nem.add_signals_from(range(3, 6))
         >>> nem.signals
-        {'S1', 'S2', 3, 4, 5}
+        {3, 4, 5, 'S2', 'S1'}
         """
         for signal in signals:
             self.add_signal(signal)
+        
+    ########
+    ########
+
+    def parents_of(self, signals: NodeSet) -> Set[Node]:
+        """
+        Return all signals that are parents of the signal or set of signals ``signals``.
+        Parameters
+        ----------
+        signals
+            A signal or set of signals.
+        See Also
+        --------
+        children_of
+        Examples
+        --------
+        >>> from pynem import NestedEffectsModel
+        >>> g = SignalGraph(edges={(1, 2), (2, 3)})
+        >>> nem = NestedEffectsModel(signal_graph = g)
+        >>> nem.parents_of(2)
+        {1}
+        >>> nem.parents_of({2, 3})
+        {1, 2}
+        """
+        return self._signal_graph.parents_of(signals)
+
+    def children_of(self, signals: NodeSet) -> Set[Node]:
+        """
+        Return all signals that are children of the signal or set of signals ``signals``.
+        Parameters
+        ----------
+        nodes
+            A signal or set of signals.
+        See Also
+        --------
+        parents_of
+        Examples
+        --------
+        >>> from pynem import SignalGraph, NestedEffectsModel
+        >>> g = SignalGraph(edges={(1, 2), (2, 3)})
+        >>> nem = NestedEffectsModel(signal_graph = g)
+        >>> nem.children_of(1)
+        {2}
+        >>> nem.children_of({1, 2})
+        {2, 3}
+        """
+        return self._signal_graph.children_of(signals)
+
+    def remove_signal(self, signal: Node, ignore_error=False):
+        """
+        Remove the signal ``signal`` from consideration in the model.
+        Parameters
+        ----------
+        signal:
+            signal to be removed.
+        ignore_error:
+            if True, ignore the KeyError raised when node is not in the SignalGraph.
+        Examples
+        --------
+        >>> from pynem import SignalGraph, NestedEffectsModel
+        >>> g = SignalGraph(edges={(1, 2)})
+        >>> nem = NestedEffectsModel(signal_graph = g)
+        >>> nem.remove_signal(2)
+        >>> nem.signal_graph.nodes
+        {1}
+        >>> nem
+        Nested Effects Model object
+        Score: None
+        Data: AnnData object with n_obs × n_vars = 0 × 0
+        Signal graph: Signal graph of 1 nodes and 0 edges
+        Effect Attachments: {}, signals = {1}
+        """
+        try:
+            self._signal_graph.remove_node(signal)
+            self._effect_attachments._signals.remove(signal)
+            self._signals.remove(signal)
+        except KeyError as e:
+            if ignore_error:
+                pass
+            else:
+                raise e
+
+    def add_edge(self, i: Node, j: Node):
+        """
+        Add the edge ``i`` -> ``j`` to the SignalGraph
+        Parameters
+        ----------
+        i:
+            source signal of the edge
+        j:
+            target signal of the edge
+        
+        See Also
+        --------
+        add_edges_from
+        Examples
+        --------
+        >>> from pynem import SignalGraph, NestedEffectsModel
+        >>> g = SignalGraph({1, 2})
+        >>> nem = NestedEffectsModel(signal_graph = g)
+        >>> nem.add_edge(1, 2)
+        >>> nem.signal_graph.edges
+        {(1, 2)}
+        """
+        self._signal_graph.add_edge(i, j)
+
+        if None in self._signals:
+            self._signals = set(self._signal_graph._nodes)
+            self._signals.add(None)
+            self._effect_attachments._signals = set(self._signal_graph._nodes)
+            self._effect_attachments._signals.add(None)
+        else:
+            self._signals = set(self._signal_graph._nodes)
+            self._effect_attachments._signals = set(self._signal_graph._nodes)
+
+    def add_edges_from(self, edges: Union[Set[Edge], Iterable[Edge]]):
+        """
+        Add edges to the SignalGraph from the collection ``edges``.
+        Parameters
+        ----------
+        edges:
+            collection of edges to be added.
+
+        See Also
+        --------
+        add_edge
+        Examples
+        --------
+        >>> from pynem import SignalGraph, NestedEffectsModel
+        >>> g = SignalGraph(edges={(1, 2)})
+        >>> nem = NestedEffectsModel(signal_graph = g)
+        >>> nem.add_edges_from({(1, 3), (2, 3)})
+        >>> nem.signal_graph.edges
+        {(2, 3), (1, 2), (1, 3)}
+        """
+        self._signal_graph.add_edges_from(edges)
+
+        if None in self._signals:
+            self._signals = set(self._signal_graph._nodes)
+            self._signals.add(None)
+            self._effect_attachments._signals = set(self._signal_graph._nodes)
+            self._effect_attachments._signals.add(None)
+        else:
+            self._signals = set(self._signal_graph._nodes)
+            self._effect_attachments._signals = set(self._signal_graph._nodes)
+    
+    def remove_edge(self, i: Node, j: Node, ignore_error=False):
+        """
+        Remove the edge ``i`` -> ``j``.
+        Parameters
+        ----------
+        i:
+            source of edge to be removed.
+        j:
+            target of edge to be removed.
+        ignore_error:
+            if True, ignore the KeyError raised when edge is not in the SignalGraph.
+        Examples
+        --------
+        >>> from pynem import SignalGraph, NestedEffectsModel
+        >>> g = SignalGraph(edges={(1, 2)})
+        >>> nem = NestedEffectsModel(signal_graph = g)
+        >>> nem.remove_edge(1, 2)
+        >>> nem.signal_graph.edges
+        set()
+        """
+        self._signal_graph.remove_edge(i, j, ignore_error)
+
+    def remove_edges_from(self, edges: Iterable, ignore_error=False):
+        """
+        Remove each edge in ``edges`` from the SignalGraph.
+        Parameters
+        ----------
+        edges
+            The edges to be removed from the SignalGraph.
+        ignore_error:
+            if True, ignore the KeyError raised when an edges is not in the SignalGraph.
+        Examples
+        --------
+        >>> from pynem import SignalGraph, NestedEffectsModel
+        >>> g = SignalGraph(edges={(1, 2), (2, 3), (3, 4)})
+        >>> nem = NestedEffectsModel(signal_graph = g)
+        >>> nem.remove_edges_from({(1, 2), (2, 3)})
+        >>> nem.signal_graph.edges
+        {(3, 4)}
+        """
+        for i, j in edges:
+            self._signal_graph.remove_edge(i, j, ignore_error=ignore_error)
+
+    def join_signals(self, signals_to_join: Set[Hashable]):
+        """
+        Join the signals in the set ``signals_to_join`` into a single multi-node.
+        Parameters
+        ----------
+        signals_to_join:
+            set of signals to be joined
+
+        See Also
+        --------
+        split_signal
+        Examples
+        --------
+        >>> from pynem import SignalGraph, NestedEffectsModel
+        >>> g = SignalGraph(edges={(1, 2), (2, 3)})
+        >>> nem = NestedEffectsModel(signal_graph = g)
+        >>> nem.join_signals({1, 2})
+        >>> nem.signals
+        {3, frozenset({1, 2})}
+        """
+        self._signal_graph.join_nodes(signals_to_join)
+        
+        if None in self._signals:
+            self._signals = set(self._signal_graph._nodes)
+            self._signals.add(None)
+            self._effect_attachments._signals = set(self._signal_graph._nodes)
+            self._effect_attachments._signals.add(None)
+        else:
+            self._signals = set(self._signal_graph._nodes)
+            self._effect_attachments._signals = set(self._signal_graph._nodes)
+    
+    def split_signal(self, node: Node, multinode: FrozenSet[Node], direction: str = 'up'):
+        """
+        Split ``node`` off from ``multinode`` either 'up' (so that ``node`` is made a parent of the new node) or
+        'down' (so that ``node`` is made a child of the new node). Both nodes resulting from the split inherit all
+        the parents and children of the original multinode.
+        Parameters
+        ----------
+        node:
+            node to be split off
+
+        multinode:
+            multi-node from which the node is being split off
+        
+        direction:
+            either 'up' or 'down' resulting in either ``node`` becoming parent of the newly split multinode or becoming
+            the child, respectively. Defaults to 'up'.
+
+        See Also
+        --------
+        join_signals
+        Examples
+        --------
+        >>> from pynem import SignalGraph, NestedEffectsModel
+        >>> g = SignalGraph(nodes = {frozenset({1,2}), 3}, edges = {(frozenset({1,2}), 3)})
+        >>> nem = NestedEffectsModel(signal_graph = g)
+        >>> nem.split_signal(node = 1, multinode = frozenset({1,2}), direction = 'up')
+        >>> nem.signals, nem.signal_graph.edges
+        ({1, 2, 3}, {(2, 3), (1, 2), (1, 3)})
+        """
+        self._signal_graph.split_node(node, multinode, direction)
+        if None in self._signals:
+            self._signals = set(self._signal_graph._nodes)
+            self._signals.add(None)
+            self._effect_attachments._signals = set(self._signal_graph._nodes)
+            self._effect_attachments._signals.add(None)
+        else:
+            self._signals = set(self._signal_graph._nodes)
+            self._effect_attachments._signals = set(self._signal_graph._nodes)
+    
+    # def to_adjacency(self, node_list: List[Node] = list(), save: bool = False) -> Tuple[np.ndarray, list]:
+    #     """
+    #     Return the adjacency matrix for the SignalGraph.
+    #     Parameters
+    #     ----------
+    #     node_list:
+    #         List indexing the rows/columns of the matrix.
+    #     save:
+    #         Boolean indicating whether the adjacency matrix and associated node_list should be saved as the ``SignalGraph.amat_tuple`` attribute
+    #     See Also
+    #     --------
+    #     from_adjacency
+    #     Return
+    #     ------
+    #     (adjacency_matrix, node_list)
+    #     Example
+    #     -------
+    #     >>> from pynem import SignalGraph
+    #     >>> g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
+    #     >>> adjacency_matrix, node_list = g.to_adjacency()
+    #     >>> adjacency_matrix
+    #     array([[1, 1, 1],
+    #            [0, 1, 1],
+    #            [0, 0, 1]])
+    #     >>> node_list
+    #     [1, 2, 3]
+    #     """
+    #     if not node_list:
+    #         node_list = list(self._nodes)
+    #         edges = self._edges
+    #     else:
+    #         edges = {(source, target) for source, target in self._edges if source in node_list and target in node_list}
+
+    #     node2ix = {node: i for i, node in enumerate(node_list)}
+    #     shape = (len(node_list), len(node_list))
+    #     adjacency_matrix = np.zeros(shape, dtype=int)
+
+    #     for source, target in edges:
+    #         adjacency_matrix[node2ix[source], node2ix[target]] = 1
+        
+    #     #SignalGraphs are reflexive by definition
+    #     np.fill_diagonal(adjacency_matrix, 1)
+
+    #     if save:
+    #         self._amat_tuple = (adjacency_matrix, node_list)
+
+    #     return adjacency_matrix, node_list

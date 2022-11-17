@@ -77,3 +77,89 @@ def test_nem_add_signals_from():
     nem = NestedEffectsModel()
     nem.add_signals_from(range(3,10))
     assert nem.signals == {3, 4, 5, 6, 7, 8, 9}
+
+def test_parents_of():
+    g = SignalGraph(edges={(1,2), (2,3), (2,4)})
+    nem = NestedEffectsModel(signal_graph=g)
+    assert nem.parents_of(nem.signals) == {1,2}
+
+def test_children_of():
+    g = SignalGraph(edges={(1,2), (2,3), (2,4)})
+    nem = NestedEffectsModel(signal_graph=g)
+    assert nem.children_of(nem.signals) == {2,3,4}
+
+def test_remove_signal():
+    g = SignalGraph(edges={(1,2), (2,3), (2,4)})
+    nem = NestedEffectsModel(signal_graph=g)
+    nem.remove_signal(2)
+    assert nem.signals == {1,3,4}
+
+def test_add_edge():
+    g = SignalGraph(edges={(1,2), (2,3), (2,4)})
+    nem = NestedEffectsModel(signal_graph=g)
+    nem.add_edge(1,4)
+    assert (1,4) in nem.signal_graph.edges
+
+def test_add_edges_from():
+    g = SignalGraph(nodes={1,2})
+    nem = NestedEffectsModel(signal_graph=g)
+    nem.add_edges_from({(1,2), (2,3), (2,4)})
+    assert nem.signals == {1,2,3,4} and nem.signal_graph.edges == {(1,2), (2,3), (2,4)}
+
+def test_remove_edge():
+    g = SignalGraph(edges={(1,2), (2,3)})
+    nem = NestedEffectsModel(signal_graph=g)
+    nem.remove_edge(1,2)
+    assert (1,2) not in nem.signal_graph.edges
+
+def test_remove_edges_from():
+    g = SignalGraph(edges={(1,2), (2,3), (2,4)})
+    nem = NestedEffectsModel(signal_graph=g)
+    nem.remove_edges_from({(1,2), (2,3)})
+    assert nem.signal_graph.edges == {(2,4)}
+
+def test_join_signals():
+    g = SignalGraph(edges={(1,2), (2,3), (2,4)})
+    nem = NestedEffectsModel(signal_graph=g)
+    nem.join_signals({1,2})
+    assert nem.signals == {frozenset({1,2}), 3, 4}
+    assert nem.signal_graph.edges == {(frozenset({1,2}), 3), (frozenset({1,2}), 4)}
+
+def test_join_signals_2():
+    g = SignalGraph(nodes={1,2,3})
+    nem = NestedEffectsModel(signal_graph=g)
+    nem.join_signals({1,2})
+    assert nem.signals == {frozenset({1,2}), 3}
+    assert nem.signal_graph.edges == set()
+
+def test_split_signal_1():
+    g = SignalGraph(edges={(frozenset({1,2}), 3), (frozenset({1,2}), 4)})
+    nem = NestedEffectsModel(signal_graph=g)
+    nem.split_signal(1, frozenset({1,2}), 'up')
+    assert nem.signals == {1,2,3,4}
+    assert nem.signal_graph.edges == {(1,2), (1,3), (1,4), (2,3), (2,4)}
+
+def test_split_signal_2():
+    g = SignalGraph(edges={(frozenset({1,2}), 3), (frozenset({1,2}), 4)})
+    nem = NestedEffectsModel(signal_graph=g)
+    with pytest.raises(KeyError) as e_info:
+        nem.split_signal(1, frozenset({3}), 'up')
+
+# def test_to_adjacency():
+#     g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
+#     adj_test_mat = np.array([[1, 1, 1], [0, 1, 1],[0, 0, 1]])
+#     adjacency_matrix, node_list = g.to_adjacency()
+#     assert np.all(adjacency_matrix == adj_test_mat)
+
+# def test_to_adjacency_node_list():
+#     g = SignalGraph(edges={(1, 2), (1, frozenset({3,4})), (2, frozenset({3,4}))})
+#     adj_test_mat = np.array([[1, 0], [1, 1]])
+#     adjacency_matrix, node_list = g.to_adjacency(node_list=[frozenset({3,4}),2])
+#     assert np.all(adjacency_matrix == adj_test_mat)
+
+# def test_to_adjacency_save():
+#     g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
+#     adj_test_mat = np.array([[1, 0], [1, 1]])
+#     adjacency_matrix, node_list = g.to_adjacency(node_list=[3,2], save = True)
+#     assert np.all(g.amat_tuple[0] == adj_test_mat)
+#     assert g.amat_tuple[1] == node_list
