@@ -79,6 +79,12 @@ def test_join_nodes():
     assert g.nodes == {frozenset({1,2}), 3, 4}
     assert g.edges == {(frozenset({1,2}), 3), (frozenset({1,2}), 4)}
 
+def test_join_nodes_2():
+    g = SignalGraph(nodes={1,2,3})
+    g.join_nodes({1,2})
+    assert g.nodes == {frozenset({1,2}), 3}
+    assert g.edges == set()
+
 def test_split_node_1():
     g = SignalGraph(edges={(frozenset({1,2}), 3), (frozenset({1,2}), 4)})
     g.split_node(1, frozenset({1,2}), 'up')

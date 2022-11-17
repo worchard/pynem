@@ -358,6 +358,7 @@ class SignalGraph:
         from_parents = {(n, joined_node) for n in parents}
         to_children = {(joined_node, n) for n in children}
 
+        self.add_node(joined_node)
         self.add_edges_from(from_parents.union(to_children))
         self._children[joined_node].update(children)
         self._parents[joined_node].update(parents)
