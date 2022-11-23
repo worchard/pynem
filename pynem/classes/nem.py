@@ -475,8 +475,8 @@ class NestedEffectsModel():
         >>> node_list
         ['S1', 'S2', 'S3', 'E1', 'E2', 'E3']
         """
-        sg_amat, _ = self._signal_graph.to_adjacency(node_list=signal_list)
-        ea_amat, _, _ = self._effect_attachments.to_adjacency(signal_list=signal_list, effect_list=effect_list)
+        sg_amat, signal_list = self._signal_graph.to_adjacency(node_list=signal_list)
+        ea_amat, signal_list, effect_list = self._effect_attachments.to_adjacency(signal_list=signal_list, effect_list=effect_list)
         zero_array = np.zeros((ea_amat.shape[0], sg_amat.shape[1] + ea_amat.shape[1]), dtype=int)
 
         tmp_array = np.hstack([sg_amat, ea_amat])

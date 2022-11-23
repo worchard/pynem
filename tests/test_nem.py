@@ -145,17 +145,31 @@ def test_split_signal_2():
     with pytest.raises(KeyError) as e_info:
         nem.split_signal(1, frozenset({3}), 'up')
 
-# def test_to_adjacency():
-#     g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
-#     adj_test_mat = np.array([[1, 1, 1], [0, 1, 1],[0, 0, 1]])
-#     adjacency_matrix, node_list = g.to_adjacency()
-#     assert np.all(adjacency_matrix == adj_test_mat)
+def test_to_adjacency():
+    sg = SignalGraph(edges={('S1', 'S2'), ('S1', 'S3'), ('S2', 'S3')})
+    ea = EffectAttachments({'E1':'S1', 'E2':'S2', 'E3':'S3'})
+    nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
+    adj_test_mat = np.array([[1, 1, 1, 1, 0, 0],
+               [0, 1, 1, 0, 1, 0],
+               [0, 0, 1, 0, 0, 1],
+               [0, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0, 0, 0]])
+    adjacency_matrix, node_list =  nem.to_adjacency(signal_list = ['S1', 'S2', 'S3'], effect_list = ['E1', 'E2', 'E3'])
+    assert np.all(adjacency_matrix == adj_test_mat)
 
-# def test_to_adjacency_node_list():
-#     g = SignalGraph(edges={(1, 2), (1, frozenset({3,4})), (2, frozenset({3,4}))})
-#     adj_test_mat = np.array([[1, 0], [1, 1]])
-#     adjacency_matrix, node_list = g.to_adjacency(node_list=[frozenset({3,4}),2])
-#     assert np.all(adjacency_matrix == adj_test_mat)
+def test_to_adjacency_no_node_list():
+    sg = SignalGraph(edges={('S1', 'S2'), ('S1', 'S3'), ('S2', 'S3')})
+    ea = EffectAttachments({'E1':'S1', 'E2':'S2', 'E3':'S3'})
+    nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
+    adj_test_mat = np.array([[1, 1, 1, 1, 0, 0],
+               [0, 1, 1, 0, 1, 0],
+               [0, 0, 1, 0, 0, 1],
+               [0, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0, 0, 0]])
+    adjacency_matrix, node_list = nem.to_adjacency()
+    assert np.sum(adjacency_matrix) == np.sum(adj_test_mat)
 
 # def test_to_adjacency_save():
 #     g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
