@@ -442,50 +442,49 @@ class NestedEffectsModel():
             self._signals = set(self._signal_graph._nodes)
             self._effect_attachments._signals = set(self._signal_graph._nodes)
     
-    # def to_adjacency(self, node_list: List[Node] = list(), save: bool = False) -> Tuple[np.ndarray, list]:
-    #     """
-    #     Return the adjacency matrix for the SignalGraph.
-    #     Parameters
-    #     ----------
-    #     node_list:
-    #         List indexing the rows/columns of the matrix.
-    #     save:
-    #         Boolean indicating whether the adjacency matrix and associated node_list should be saved as the ``SignalGraph.amat_tuple`` attribute
-    #     See Also
-    #     --------
-    #     from_adjacency
-    #     Return
-    #     ------
-    #     (adjacency_matrix, node_list)
-    #     Example
-    #     -------
-    #     >>> from pynem import SignalGraph
-    #     >>> g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
-    #     >>> adjacency_matrix, node_list = g.to_adjacency()
-    #     >>> adjacency_matrix
-    #     array([[1, 1, 1],
-    #            [0, 1, 1],
-    #            [0, 0, 1]])
-    #     >>> node_list
-    #     [1, 2, 3]
-    #     """
-    #     if not node_list:
-    #         node_list = list(self._nodes)
-    #         edges = self._edges
-    #     else:
-    #         edges = {(source, target) for source, target in self._edges if source in node_list and target in node_list}
+    def to_adjacency(self, signal_list: List[Node] = list(), effect_list: List[Node] = list(), 
+    save: bool = False) -> Tuple[np.ndarray, list]:
+        """
+        Return the adjacency matrix for the full graph, including both SignalGraph and EffectAttachments.
+        Signals always index the rows and columns first, followed by the effects.
+        Parameters
+        ----------
+        signal_list:
+            List indexing the first len(signal_list) rows/columns of the matrix.
+        effect_list:
+            List indexing the next len(effect_list) rows/columns of the matrix.
+        save:
+            Boolean indicating whether the adjacency matrix and associated node_list should be saved as the ``NestedEffectsModel.amat_tuple`` attribute
+        Return
+        ------
+        (adjacency_matrix, node_list)
+        Example
+        -------
+        >>> from pynem import SignalGraph, EffectAttachments, NestedEffectsModel
+        >>> sg = SignalGraph(edges={('S1', 'S2'), ('S1', 'S3'), ('S2', 'S3')})
+        >>> ea = EffectAttachments({'E1':'S1', 'E2':'S2', 'E3':'S3'})
+        >>> nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
+        >>> adjacency_matrix, node_list = nem.to_adjacency(signal_list = ['S1', 'S2', 'S3'], effect_list = ['E1', 'E2', 'E3'])
+        >>> adjacency_matrix
+        array([[1, 1, 1, 1, 0, 0],
+               [0, 1, 1, 0, 1, 0],
+               [0, 0, 1, 0, 0, 1],
+               [0, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0, 0, 0]])
+        >>> node_list
+        ['S1', 'S2', 'S3', 'E1', 'E2', 'E3']
+        """
+        sg_amat, _ = self._signal_graph.to_adjacency(node_list=signal_list)
+        ea_amat, _, _ = self._effect_attachments.to_adjacency(signal_list=signal_list, effect_list=effect_list)
+        zero_array = np.zeros((ea_amat.shape[0], sg_amat.shape[1] + ea_amat.shape[1]), dtype=int)
 
-    #     node2ix = {node: i for i, node in enumerate(node_list)}
-    #     shape = (len(node_list), len(node_list))
-    #     adjacency_matrix = np.zeros(shape, dtype=int)
+        tmp_array = np.hstack([sg_amat, ea_amat])
+        adjacency_matrix = np.vstack([tmp_array, zero_array])
 
-    #     for source, target in edges:
-    #         adjacency_matrix[node2ix[source], node2ix[target]] = 1
-        
-    #     #SignalGraphs are reflexive by definition
-    #     np.fill_diagonal(adjacency_matrix, 1)
+        node_list = signal_list + effect_list
 
-    #     if save:
-    #         self._amat_tuple = (adjacency_matrix, node_list)
+        if save:
+            self._amat_tuple = (adjacency_matrix, node_list)
 
-    #     return adjacency_matrix, node_list
+        return adjacency_matrix, node_list
