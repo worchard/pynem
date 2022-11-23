@@ -26,6 +26,7 @@ class EffectAttachments(UserDict):
         super().__setitem__(key, value)
 
     def __init__(self, *args, signals: Set[Node] = set(), **kwargs):
+        self._amat_tuple = None
         super().__init__(*args, **kwargs)
         if not signals:
             self._signals = set(self.values())
@@ -252,4 +253,4 @@ class EffectAttachments(UserDict):
     
     @property
     def amat_tuple(self):
-        return tuple(self._amat_tuple)
+        return self._amat_tuple
