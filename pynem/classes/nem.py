@@ -137,7 +137,10 @@ class NestedEffectsModel():
     @property
     def score(self) -> float:
         return self._score
-
+    
+    @property
+    def amat_tuple(self) -> Tuple[np.ndarray, list]:
+        return self._amat_tuple
 
     # === NEM manipulation
     def add_signal(self, signal: Node):

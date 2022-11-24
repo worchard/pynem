@@ -171,9 +171,18 @@ def test_to_adjacency_no_node_list():
     adjacency_matrix, node_list = nem.to_adjacency()
     assert np.sum(adjacency_matrix) == np.sum(adj_test_mat)
 
-# def test_to_adjacency_save():
-#     g = SignalGraph(edges={(1, 2), (1, 3), (2, 3)})
-#     adj_test_mat = np.array([[1, 0], [1, 1]])
-#     adjacency_matrix, node_list = g.to_adjacency(node_list=[3,2], save = True)
-#     assert np.all(g.amat_tuple[0] == adj_test_mat)
-#     assert g.amat_tuple[1] == node_list
+def test_to_adjacency_save():
+    sg = SignalGraph(edges={('S1', 'S2'), ('S1', 'S3'), ('S2', 'S3')})
+    ea = EffectAttachments({'E1':'S1', 'E2':'S2', 'E3':'S3'})
+    nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
+    signal_list = ['S1', 'S2', 'S3']
+    effect_list = ['E1', 'E2', 'E3']
+    adj_test_mat = np.array([[1, 1, 1, 1, 0, 0],
+               [0, 1, 1, 0, 1, 0],
+               [0, 0, 1, 0, 0, 1],
+               [0, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0, 0, 0]])
+    adjacency_matrix, node_list =  nem.to_adjacency(signal_list = signal_list, effect_list = effect_list, save=True)
+    assert np.all(nem.amat_tuple[0] == adj_test_mat)
+    assert nem.amat_tuple[1] == signal_list + effect_list
