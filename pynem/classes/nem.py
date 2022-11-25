@@ -1,5 +1,6 @@
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
 from os import linesep
+from operator import itemgetter
 
 from pynem.utils import core_utils
 from pynem.custom_types import *
@@ -58,15 +59,30 @@ class NestedEffectsModel():
     def predict_dict(self) -> dict:
         """
         Predict which effect reporters will be affcted by the perturbation of each signal, given a signal graph and effect attachments, and return
-        dictionary where each key is a signal, and each value is the set of predicted perturbed effects.
+        dictionary where each key is a signal, and each value is a tuple of predicted perturbed effects.
         ----------
         See Also
         --------
         predict_array
         Example
         --------
+        >>> from pynem import SignalGraph, EffectAttachments, NestedEffectsModel
+        >>> sg = SignalGraph(edges={(0, 1), (0, 2), (1, 2)})
+        >>> sg.add_node(3)
+        >>> ea = EffectAttachments({'E0': 0, 'E1': 1, 'E2': 2}, signals = {3})
+        >>> nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
+        >>> nem.predict_dict()
+        {0: ('E0', 'E1', 'E2'), 1: ('E1', 'E2'), 2: 'E2', 3: ()}
         """
-        raise NotImplementedError
+        flipped_ea = {s: e for e, s in self._effect_attachments.items()}
+        pre_dict = {s: (itemgetter(s, *self._signal_graph.children_of(s))(flipped_ea)) for s in flipped_ea.keys()}
+        for signal in self._signal_graph._nodes:
+            if signal in pre_dict.keys():
+                pass
+            else:
+                pre_dict[signal] = ()
+        
+        return pre_dict
 
     def predict_array(self) -> np.ndarray:
         """
@@ -202,7 +218,7 @@ class NestedEffectsModel():
         children_of
         Examples
         --------
-        >>> from pynem import NestedEffectsModel
+        >>> from pynem import SignalGraph, NestedEffectsModel
         >>> g = SignalGraph(edges={(1, 2), (2, 3)})
         >>> nem = NestedEffectsModel(signal_graph = g)
         >>> nem.parents_of(2)

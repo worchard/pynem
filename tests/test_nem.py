@@ -186,3 +186,12 @@ def test_to_adjacency_save():
     adjacency_matrix, node_list =  nem.to_adjacency(signal_list = signal_list, effect_list = effect_list, save=True)
     assert np.all(nem.amat_tuple[0] == adj_test_mat)
     assert nem.amat_tuple[1] == signal_list + effect_list
+
+def test_predict_dict():
+    example_dict = {0: ('E0', 'E1', 'E2'), 1: ('E1', 'E2'), 2: 'E2', 3: ()}
+    sg = SignalGraph(edges={(0, 1), (0, 2), (1, 2)})
+    sg.add_node(3)
+    ea = EffectAttachments({'E0': 0, 'E1': 1, 'E2': 2}, signals = {3})
+    nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
+    predict_dict = nem.predict_dict()
+    assert example_dict == predict_dict
