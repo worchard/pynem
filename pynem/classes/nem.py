@@ -56,6 +56,10 @@ class NestedEffectsModel():
             assert self._signal_graph.nodes == self._effect_attachments.signals.difference({None}), \
                 "Nodes of the signal graph must match the signals of the effect attachments"
 
+    def __setitem__(self, key, value):
+        self.add_signal(value)
+        self._effect_attachments[key] = value
+
     def predict_dict(self) -> dict:
         """
         Predict which effect reporters will be affcted by the perturbation of each signal, given a signal graph and effect attachments, and return
@@ -177,7 +181,8 @@ class NestedEffectsModel():
         >>> nem.signals
         {'S1'}
         """
-        self._signal_graph.add_node(signal)
+        if signal != None:
+            self._signal_graph.add_node(signal)
         self._effect_attachments.add_signal(signal)
         self._signals.add(signal)
 

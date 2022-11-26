@@ -195,3 +195,11 @@ def test_predict_dict():
     nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
     predict_dict = nem.predict_dict()
     assert example_dict == predict_dict
+
+def test_item_setter():
+    nem = NestedEffectsModel()
+    nem['E1'] = 'S1'
+    nem['E2'] = None
+    assert nem.signals == {None, 'S1'}
+    assert nem.effect_attachments.data == {'E1': 'S1', 'E2': None}
+    assert nem.signal_graph.nodes == {'S1'}
