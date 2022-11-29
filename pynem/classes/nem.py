@@ -1,4 +1,5 @@
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
+from collections import defaultdict
 from os import linesep
 from operator import itemgetter
 
@@ -78,13 +79,18 @@ class NestedEffectsModel():
         >>> nem.predict_dict()
         {0: ('E0', 'E1', 'E2'), 1: ('E1', 'E2'), 2: 'E2', 3: ()}
         """
-        flipped_ea = {s: e for e, s in self._effect_attachments.items()}
-        pre_dict = {s: (itemgetter(s, *self._signal_graph.children_of(s))(flipped_ea)) for s in flipped_ea.keys()}
+        flipped_ea = defaultdict(set)
+        for e, s in self._effect_attachments.items():
+            flipped_ea[s].add(e)
+        
+        """This next line takes each signal, looks up both its effects and its children's effects
+        and then puts them together into a single set, and then assigns them as a value to a dictionary with each signal as the key"""
+        pre_dict = {s_key: set().union(*[flipped_ea[s] for s in [s_key, *self._signal_graph.children_of(s_key)]]) for s_key in self._signal_graph._nodes}
         for signal in self._signal_graph._nodes:
             if signal in pre_dict.keys():
                 pass
             else:
-                pre_dict[signal] = ()
+                pre_dict[signal] = set()
         
         return pre_dict
 
