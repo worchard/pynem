@@ -203,3 +203,9 @@ def test_item_setter():
     assert nem.signals == {None, 'S1'}
     assert nem.effect_attachments.data == {'E1': 'S1', 'E2': None}
     assert nem.signal_graph.nodes == {'S1'}
+
+def test_alpha_beta_setter():
+    nem = NestedEffectsModel(alpha = 0.7, beta = 0.2)
+    nem.alpha = 0.9
+    with pytest.raises(ValueError) as e_info:
+        nem.beta = 1.1

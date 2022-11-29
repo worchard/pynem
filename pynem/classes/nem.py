@@ -18,10 +18,18 @@ class NestedEffectsModel():
     def __init__(self, adata: ad.AnnData = ad.AnnData(), signals: Set = set(), effects: Set = set(),
                 controls: Iterable = {'control'}, signals_column: str = 'signals', 
                 signal_graph: SignalGraph = None, effect_attachments: EffectAttachments = None, 
-                nem = None):
+                alpha: float = None, beta: float = None, nem = None):
         self._controls = controls
         self._signals_column = signals_column
         self._score = None
+        if alpha:
+            if not (alpha >= 0 and alpha <= 1):
+                raise ValueError("alpha must be between 0 and 1")
+        if beta:
+            if not (beta >= 0 and beta <= 1):
+                raise ValueError("beta must be between 0 and 1") 
+        self._alpha = alpha
+        self._beta = beta
         if nem is not None:
             self._adata = nem.adata
             self._signals = nem.signals
@@ -83,8 +91,8 @@ class NestedEffectsModel():
         for e, s in self._effect_attachments.items():
             flipped_ea[s].add(e)
         
-        """This next line takes each signal, looks up both its effects and its children's effects
-        and then puts them together into a single set, and then assigns them as a value to a dictionary with each signal as the key"""
+        """This next line takes each signal, looks up both its effects and its children's effects using the flipped effect attachments,
+        puts them together into a single set, and then assigns them as a value to a dictionary with each signal as the key"""
         pre_dict = {s_key: set().union(*[flipped_ea[s] for s in [s_key, *self._signal_graph.children_of(s_key)]]) for s_key in self._signal_graph._nodes}
         for signal in self._signal_graph._nodes:
             if signal in pre_dict.keys():
@@ -163,6 +171,26 @@ class NestedEffectsModel():
     @property
     def score(self) -> float:
         return self._score
+    
+    @property
+    def alpha(self) -> float:
+        return self._alpha
+    
+    @alpha.setter
+    def alpha(self, value):
+        if not (value >= 0 and value <= 1):
+            raise ValueError("alpha must be between 0 and 1")
+        self._alpha = value
+    
+    @property
+    def beta(self) -> float:
+        return self._beta
+    
+    @beta.setter
+    def beta(self, value):
+        if not (value >= 0 and value <= 1):
+            raise ValueError("beta must be between 0 and 1")
+        self._beta = value
     
     @property
     def amat_tuple(self) -> Tuple[np.ndarray, list]:
