@@ -136,11 +136,14 @@ class NestedEffectsModel():
     
     def __str__(self) -> str:
         scr = self._score
+        alp = self._alpha
+        bet = self._beta
         dat = self._adata.__str__()
         sg = self._signal_graph.__str__()
         ea = self._effect_attachments.__str__()
         out_string = "Nested Effects Model object" + linesep + f"Score: {scr}" + linesep + \
-        f"Data: {dat}" + linesep + f"Signal graph: {sg}" + linesep + f"Effect Attachments: {ea}"
+        f"alpha: {alp}, beta: {bet}" + linesep + f"Data: {dat}" + linesep + \
+        f"Signal graph: {sg}" + linesep + f"Effect Attachments: {ea}"
         return out_string
     
     def __repr__(self) -> str:
