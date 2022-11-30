@@ -67,6 +67,7 @@ class NestedEffectsModel():
 
     def __setitem__(self, key, value):
         self.add_signal(value)
+        self._effects.add(key)
         self._effect_attachments[key] = value
 
     def predict_dict(self) -> dict:
@@ -102,12 +103,16 @@ class NestedEffectsModel():
         
         return pre_dict
 
-    def predict_array(self) -> np.ndarray:
+    def predict_array(self, replicates: Union[int, Dict[Node, int]]) -> Tuple[np.ndarray, list, list]:
         """
         Predict which effect reporters will be affcted by the perturbation of each signal, given a signal graph and effect attachments, and return
         a tuple containing a prediction array, M, and lists indexing the rows (signals) and columns (effects) of the array. M_ij = 1 if effect j is 
-        predicted to be dependent on the perturbation of signal i, otherwise M_ij = 0. 
+        predicted to be dependent on the perturbation of signal i, otherwise M_ij = 0.
+        Parameters
         ----------
+        replicates:
+            A dictionary with signals as keys and the number of replicates of perturbations of each signal as its corresponding value.
+            If an integer is provided, it is assumed all signals have ``replicates`` number of replicates.
         See Also
         --------
         predict_dict
@@ -118,6 +123,11 @@ class NestedEffectsModel():
         --------
         """
         raise NotImplementedError
+
+        # pre_dict = self.predict_dict()
+        # signal_list = list(self._signal_graph._nodes)
+        # effect_list = list(self._effects)
+
 
     def score_model(self):
         raise NotImplementedError
