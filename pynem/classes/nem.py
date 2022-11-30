@@ -2,6 +2,7 @@ from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, 
 from collections import defaultdict
 from os import linesep
 from operator import itemgetter
+from itertools import chain
 
 from pynem.utils import core_utils
 from pynem.custom_types import *
@@ -103,31 +104,66 @@ class NestedEffectsModel():
         
         return pre_dict
 
-    def predict_array(self, replicates: Union[int, Dict[Node, int]]) -> Tuple[np.ndarray, list, list]:
+    def predict_array(self, replicates: Union[int, Dict[Node, int]] = 1, signal_list: list = list(), 
+                    effect_list: list = list(), replicates_from_adata: bool = False) -> Tuple[np.ndarray, list, list]:
         """
         Predict which effect reporters will be affcted by the perturbation of each signal, given a signal graph and effect attachments, and return
-        a tuple containing a prediction array, M, and lists indexing the rows (signals) and columns (effects) of the array. M_ij = 1 if effect j is 
-        predicted to be dependent on the perturbation of signal i, otherwise M_ij = 0.
+        a tuple containing a prediction array, F, and lists indexing the rows (signals) and columns (effects) of the array. F_ij = 1 if effect j is 
+        predicted to be dependent on the perturbation of signal i, otherwise F_ij = 0.
         Parameters
         ----------
         replicates:
             A dictionary with signals as keys and the number of replicates of perturbations of each signal as its corresponding value.
             If an integer is provided, it is assumed all signals have ``replicates`` number of replicates.
+        signal_list:
+            List indexing the rows of the output prediction array
+        effect_list:
+            List indexing the columns of the output prediction array
+        replicates_from_adata:
+            Boolean indicating whether ``replicates`` argument should be taken from the internal nem.adata object
         See Also
         --------
         predict_dict
         Return
         ------
-        (M, signal_list, effect_list)
+        (prediction_array, signal_list, effect_list)
         Example
         --------
+        >>> from pynem import SignalGraph, EffectAttachments, NestedEffectsModel
+        >>> sg = SignalGraph(edges={(0, 1), (0, 2), (1, 2)})
+        >>> sg.add_node(3)
+        >>> ea = EffectAttachments({'E0': 0, 'E1': 1, 'E2': 2}, signals = {3})
+        >>> nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
+        >>> F, signal_list, effect_list = nem.predict_array(replicates = 2, signal_list = [2,1,0], effect_list = ['E1', 'E2', 'E0'])
+        >>> F
+        array([[0, 1, 0],
+               [0, 1, 0],
+               [1, 1, 0],
+               [1, 1, 0],
+               [1, 1, 1],
+               [1, 1, 1]])
+        >>> signal_list
+        [2, 2, 1, 1, 0, 0]
         """
-        raise NotImplementedError
+        prediction_dict = self.predict_dict()
+        if not signal_list:
+            signal_list = list(self._signal_graph._nodes)
+        if not effect_list:
+            effect_list = list(self._effects)
+        
+        if isinstance(replicates, int):
+            replicates = dict.fromkeys(signal_list, replicates)
+        
+        if replicates_from_adata:
+            replicates = dict(self._adata.obs[self._signals_column].value_counts())
 
-        # pre_dict = self.predict_dict()
-        # signal_list = list(self._signal_graph._nodes)
-        # effect_list = list(self._effects)
+        prediction_lists = [np.tile([e in prediction_dict[s] for e in effect_list], (replicates[s], 1)) for s in signal_list]
+        prediction_array = np.vstack(prediction_lists).astype(int)
 
+        if prediction_array.shape[0] != len(signal_list):
+            signal_list = list(chain.from_iterable([s]*replicates[s] for s in signal_list))
+
+        return (prediction_array, signal_list, effect_list)
 
     def score_model(self):
         raise NotImplementedError
