@@ -85,7 +85,7 @@ class NestedEffectsModel():
         >>> ea = EffectAttachments({'E0': 0, 'E1': 1, 'E2': 2}, signals = {3})
         >>> nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
         >>> nem.predict_dict()
-        {0: ('E0', 'E1', 'E2'), 1: ('E1', 'E2'), 2: 'E2', 3: ()}
+        {0: {'E0', 'E1', 'E2'}, 1: {'E1', 'E2'}, 2: {'E2'}, 3: set()}
         """
         flipped_ea = defaultdict(set)
         for e, s in self._effect_attachments.items():
@@ -312,6 +312,7 @@ class NestedEffectsModel():
         >>> nem
         Nested Effects Model object
         Score: None
+        alpha: None, beta: None
         Data: AnnData object with n_obs × n_vars = 0 × 0
         Signal graph: Signal graph of 1 nodes and 0 edges
         Effect Attachments: {}, signals = {1}
