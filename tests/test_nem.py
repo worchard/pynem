@@ -209,3 +209,17 @@ def test_alpha_beta_setter():
     nem.alpha = 0.9
     with pytest.raises(ValueError) as e_info:
         nem.beta = 1.1
+
+def test_predict_array():
+    sg = SignalGraph(edges={(0, 1), (0, 2), (1, 2)})
+    sg.add_node(3)
+    ea = EffectAttachments({'E0': 0, 'E1': 1, 'E2': 2}, signals = {3})
+    nem = NestedEffectsModel(signal_graph = sg, effect_attachments = ea)
+    F, signal_list, effect_list = nem.predict_array(replicates = 2, signal_list = [2,1,0], effect_list = ['E1', 'E2', 'E0'])
+    assert np.all(F == np.array([[0, 1, 0],
+                                 [0, 1, 0],
+                                 [1, 1, 0],
+                                 [1, 1, 0],
+                                 [1, 1, 1],
+                                 [1, 1, 1]]))
+    assert signal_list == [2, 2, 1, 1, 0, 0]
