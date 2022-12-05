@@ -19,18 +19,22 @@ class NestedEffectsModel():
     def __init__(self, adata: ad.AnnData = ad.AnnData(), signals: Set = set(), effects: Set = set(),
                 controls: Iterable = {'control'}, signals_column: str = 'signals', 
                 signal_graph: SignalGraph = None, effect_attachments: EffectAttachments = None, 
-                alpha: float = None, beta: float = None, nem = None):
+                alpha: float = 0.13, beta: float = 0.05, lambda_reg: float = 0, delta: float = 1, nem = None):
         self._controls = controls
         self._signals_column = signals_column
         self._score = None
-        if alpha:
-            if not (alpha >= 0 and alpha <= 1):
+        if not (alpha >= 0 and alpha <= 1):
                 raise ValueError("alpha must be between 0 and 1")
-        if beta:
-            if not (beta >= 0 and beta <= 1):
-                raise ValueError("beta must be between 0 and 1") 
+        if not (beta >= 0 and beta <= 1):
+                raise ValueError("beta must be between 0 and 1")
+        if lambda_reg < 0:
+            raise ValueError("lambda_reg cannot be negative")
+        if delta < 0:
+            raise ValueError("delta cannot be negative")
         self._alpha = alpha
         self._beta = beta
+        self._lambda_reg = lambda_reg
+        self._delta = delta
         if nem is not None:
             self._adata = nem.adata
             self._signals = nem.signals
@@ -240,6 +244,26 @@ class NestedEffectsModel():
         if not (value >= 0 and value <= 1):
             raise ValueError("beta must be between 0 and 1")
         self._beta = value
+    
+    @property
+    def lambda_reg(self) -> float:
+        return self._lambda_reg
+    
+    @lambda_reg.setter
+    def lambda_reg(self, value):
+        if value < 0:
+            raise ValueError("lambda_reg cannot be negative")
+        self._lambda_reg = value
+    
+    @property
+    def delta(self) -> float:
+        return self._delta
+    
+    @delta.setter
+    def delta(self, value):
+        if value < 0:
+            raise ValueError("delta cannot be negative")
+        self._delta = value
     
     @property
     def amat_tuple(self) -> Tuple[np.ndarray, list]:
