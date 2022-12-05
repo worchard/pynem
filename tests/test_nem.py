@@ -204,11 +204,14 @@ def test_item_setter():
     assert nem.effect_attachments.data == {'E1': 'S1', 'E2': None}
     assert nem.signal_graph.nodes == {'S1'}
 
-def test_alpha_beta_setter():
-    nem = NestedEffectsModel(alpha = 0.7, beta = 0.2)
+def test_parameter_setter():
+    nem = NestedEffectsModel(alpha = 0.7, beta = 0.2, lambda_reg = 0.1, delta = 2)
     nem.alpha = 0.9
     with pytest.raises(ValueError) as e_info:
         nem.beta = 1.1
+    nem.lambda_reg = 0
+    with pytest.raises(ValueError) as e_info:
+        nem.delta = -5
 
 def test_predict_array():
     sg = SignalGraph(edges={(0, 1), (0, 2), (1, 2)})
