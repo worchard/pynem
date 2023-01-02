@@ -104,3 +104,9 @@ class AugmentedGraph:
             return
         edges_idx = core_utils.edgeNames2idx(self._property_array, edges)
         self._add_edges_from(edges_idx)
+
+    # === PROPERTIES
+
+    @property
+    def property_array(self):
+        return self._property_array.copy()
