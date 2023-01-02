@@ -64,7 +64,7 @@ class AugmentedGraph:
     def _add_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
             return
-        self._amat[[*zip(*edges)]] = 1
+        self._amat[(*zip(*edges),)] = 1
 
     def add_edge(self, i: Node, j: Node):
         """
@@ -108,5 +108,5 @@ class AugmentedGraph:
     # === PROPERTIES
 
     @property
-    def property_array(self):
+    def property_array(self) -> np.ndarray:
         return self._property_array.copy()

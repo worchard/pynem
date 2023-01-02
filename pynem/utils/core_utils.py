@@ -83,8 +83,8 @@ def edgeNames2idx(property_array, edges):
     --------
     >>> from pynem import AugmentedGraph
     >>> from pynem.utils import core_utils
-    >>> ag = AugmentedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'],
-                            edges = [('S1', 'S2'), ('S2', 'S3'), ('S1', 'S3')])
+    >>> ag = AugmentedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'], \
+        edges = [('S1', 'S2'), ('S2', 'S3'), ('S1', 'S3')])
     >>> core_utils.edgeNames2idx(ag.property_array, [('S1', 'S2'), ('S2', 'S3')])
     [(0, 1), (1, 2)]
     """
