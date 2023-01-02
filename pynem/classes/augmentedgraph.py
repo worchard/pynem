@@ -52,7 +52,12 @@ class AugmentedGraph:
 
             self._amat = np.zeros((self._nnodes, self._nnodes))
             self.add_edges_from(edges)
-        
+
+    def __eq__(self, other):
+        if not isinstance(other, AugmentedGraph):
+            return False
+        return np.array_equal(self._property_array, other._property_array) and np.array_equal(self._amat, other._amat)
+    
     def _add_edge(self, i: int, j: int):
         self._amat[i, j] = 1
     
