@@ -42,7 +42,7 @@ class AugmentedGraph:
             
             self._nnodes = len_signals + len_effects
             self._nodes = np.array(range(self._nnodes))
-            self._signals = self._nodes[:len_signals]
+            self._signals = self._nodes[:len_signals] ##TODO Do I need this line and below?
             self._effects = self._nodes[len_signals:]
             
             #initialise and populate property array
@@ -104,6 +104,116 @@ class AugmentedGraph:
             return
         edges_idx = core_utils.edgeNames2idx(self._property_array, edges)
         self._add_edges_from(edges_idx)
+
+    # === BASIC METHODS
+
+    def nsignals(self) -> int:
+        return self._property_array['is_signal'].sum()
+    
+    def neffects(self) -> int:
+        return self._property_array.shape[0] - self.nsignals()
+    
+    def signals_idx(self) -> np.ndarray:
+        return np.array(range(self.nsignals()))
+    
+    def signals(self) -> np.ndarray:
+        return self._property_array['name'][:self.nsignals()].copy()
+    
+    def edges_idx(self) -> list:
+        return [*zip(*self._amat.nonzero())]
+
+    def edges(self) -> list:
+        edge_array = self._amat.nonzero()
+        sources = self._property_array['name'][edge_array[0]]
+        sinks = self._property_array['name'][edge_array[1]]
+        return [*zip(sources, sinks)]
+    
+    # === KEY METHODS
+
+    def add_signal(self, signal_name = None):
+        raise NotImplementedError
+        nsignals = self.nsignals()
+
+    def _signal_amat(self) -> np.ndarray:
+        nsignals = self.nsignals()
+        return self._amat[:nsignals, :nsignals]
+
+    def signal_amat(self) -> Tuple[np.ndarray, np.ndarray]:
+        nsignals = self.nsignals()
+        signal_amat = self._signal_amat().copy()
+        signal_array = self._property_array['name'][:nsignals].copy()
+        return (signal_amat, signal_array)
+    
+    def _effect_attachments(self) -> np.ndarray:
+        nsignals = self.nsignals()
+        return self._amat[:nsignals, nsignals:]
+    
+    def effect_attachments(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        nsignals = self.nsignals()
+        effect_attachments = self._effect_attachments().copy()
+        signal_array = self._property_array['name'][:nsignals].copy()
+        effect_array = self._property_array['name'][nsignals:].copy()
+        return (effect_attachments, signal_array, effect_array)
+
+    # === UTILITY METHODS
+
+    def name2idx(self, name) -> int:
+        """
+        Convert a given node ``name`` to its corresponding index according to the ``property_array``
+        of an AugmentedGraph object.
+        Parameters
+        ----------
+        name:
+            Node name to convert to an index. Note this name must appear in the name column of the property array.
+        Examples
+        --------
+        >>> from pynem import AugmentedGraph
+        >>> ag = AugmentedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'])
+        >>> ag.name2idx('S1')
+        0
+        """
+        return np.nonzero(self._property_array['name'] == name)[0][0]
+
+    def names2idx(self, name_array) -> np.ndarray:
+        """
+        Convert node names given in a 1D ndarray ``name_array`` to a corresponding array of node indices 
+        according to the ``property_array`` of an AugmentedGraph object.
+        Parameters
+        ----------
+        name_array:
+            ndarray of node names to convert to indices. Note all names must appear in the name column of the property array.
+        Examples
+        --------
+        >>> from pynem import AugmentedGraph
+        >>> ag = AugmentedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'])
+        >>> ag.names2idx(np.array(['S1', 'S3']))
+        array([0, 2])
+        """
+        full_name_array = self._property_array['name']
+        sorter = full_name_array.argsort()
+        return sorter[np.searchsorted(full_name_array, name_array, sorter=sorter)]
+
+    def edgeNames2idx(self, edges) -> list:
+        """
+        Convert an iterable of edges referring to nodes by name to a corresponding list 
+        of edges referring nodes by their indices, according to the ``property_array``
+        of an AugmentedGraph object.
+        Parameters
+        ----------
+        edges:
+            Iterable of edges to convert. Note all node names must appear in the name column of the property array.
+        Examples
+        --------
+        >>> from pynem import AugmentedGraph
+        >>> ag = AugmentedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'], \
+            edges = [('S1', 'S2'), ('S2', 'S3'), ('S1', 'S3')])
+        >>> ag.edgeNames2idx([('S1', 'S2'), ('S2', 'S3')])
+        [(0, 1), (1, 2)]
+        """
+        edge_tuples = [*zip(*edges)]
+        sources = self.names2idx(edge_tuples[0])
+        sinks = self.names2idx(edge_tuples[1])
+        return [*zip(sources, sinks)]
 
     # === PROPERTIES
 
