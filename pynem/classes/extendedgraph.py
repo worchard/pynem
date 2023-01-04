@@ -53,7 +53,7 @@ class ExtendedGraph:
 
             self._amat = np.zeros((nsignals, nnodes))
             self.add_edges_from(edges)
-            raise NotImplementedError ## Need to implement attach_effects_from method and have this here
+            self.attach_effects_from(effect_attachments)
 
     def __eq__(self, other):
         if not isinstance(other, ExtendedGraph):
@@ -68,10 +68,15 @@ class ExtendedGraph:
             return
         self._signal_amat()[(*zip(*edges),)] = 1
     
-    def _attach_effect(self, effect: int, signal: int):
-        raise NotImplementedError
-        nsignals = self.nsignals()
-        self._attachment_amat()[effect - nsignals, signal - nsignals]
+    def _attach_effect(self, signal: int, effect: int):
+        self._attachment_amat()[signal, effect - self.nsignals()]
+    
+    def _attach_effects_from(self, attachments: Iterable[Edge]):
+        if len(attachments) == 0:
+            return
+        addition_array = np.array((*zip(*attachments),))
+        addition_array[1,] -= self.nsignals()
+        self._attachment_amat()[tuple(addition_array)] = 1
 
     def add_edge(self, i: Node, j: Node):
         """
@@ -110,6 +115,17 @@ class ExtendedGraph:
             return
         edges_idx = self.edgeNames2idx(edges)
         self._add_edges_from(edges_idx)
+    
+    def attach_effect(self, signal: Node, effect: Node):
+        signal = self.name2idx(signal)
+        effect = self.name2idx(effect, is_signal=False)
+        self._attach_effect(signal, effect)
+
+    def attach_effects_from(self, attachments: Iterable[Edge]):
+        if len(attachments) == 0:
+            return
+        attachments_idx = self.edgeNames2idx(attachments, is_signal=False)
+        self._attach_effects_from(attachments_idx)
 
     # === BASIC METHODS
 
@@ -176,7 +192,7 @@ class ExtendedGraph:
 
     # === UTILITY METHODS
 
-    def name2idx(self, name) -> int:
+    def name2idx(self, name, is_signal: bool = True) -> int:
         """
         Convert a given node ``name`` to its corresponding index according to the ``property_array``
         of an ExtendedGraph object.
@@ -184,6 +200,8 @@ class ExtendedGraph:
         ----------
         name:
             Node name to convert to an index. Note this name must appear in the name column of the property array.
+        is_signal:
+            Boolean indicating whether the name is of a signal node or an effect node.
         Examples
         --------
         >>> from pynem import ExtendedGraph
@@ -191,9 +209,13 @@ class ExtendedGraph:
         >>> eg.name2idx('S1')
         0
         """
-        return np.nonzero(self._property_array['name'] == name)[0][0]
+        mask = self._property_array['is_signal'] == is_signal
+        if is_signal:
+            return np.nonzero(self._property_array['name'][mask] == name)[0][0]
+        else:
+            return np.nonzero(self._property_array['name'][mask] == name)[0][0] + self.nsignals()
 
-    def names2idx(self, name_array) -> np.ndarray:
+    def names2idx(self, name_array, is_signal: bool = True) -> np.ndarray:
         """
         Convert node names given in a 1D ndarray ``name_array`` to a corresponding array of node indices 
         according to the ``property_array`` of an ExtendedGraph object.
@@ -201,6 +223,8 @@ class ExtendedGraph:
         ----------
         name_array:
             ndarray of node names to convert to indices. Note all names must appear in the name column of the property array.
+        is_signal:
+            Boolean indicating whether the names in ``name_array`` are of signal nodes or effect nodes.
         Examples
         --------
         >>> from pynem import ExtendedGraph
@@ -208,11 +232,15 @@ class ExtendedGraph:
         >>> eg.names2idx(np.array(['S1', 'S3']))
         array([0, 2])
         """
-        full_name_array = self._property_array['name']
+        mask = self._property_array['is_signal'] == is_signal
+        full_name_array = self._property_array['name'][mask]
         sorter = full_name_array.argsort()
-        return sorter[np.searchsorted(full_name_array, name_array, sorter=sorter)]
+        if is_signal:
+            return sorter[np.searchsorted(full_name_array, name_array, sorter=sorter)]
+        else:
+            return sorter[np.searchsorted(full_name_array, name_array, sorter=sorter)] + self.nsignals()
 
-    def edgeNames2idx(self, edges) -> list:
+    def edgeNames2idx(self, edges, is_signal: bool = True) -> list:
         """
         Convert an iterable of edges referring to nodes by name to a corresponding list 
         of edges referring nodes by their indices, according to the ``property_array``
@@ -221,6 +249,8 @@ class ExtendedGraph:
         ----------
         edges:
             Iterable of edges to convert. Note all node names must appear in the name column of the property array.
+        is_signal:
+            Boolean indicating whether the edges in ``edges`` are between signals or are attaching signals to effects.
         Examples
         --------
         >>> from pynem import ExtendedGraph
@@ -231,7 +261,7 @@ class ExtendedGraph:
         """
         edge_tuples = [*zip(*edges)]
         sources = self.names2idx(edge_tuples[0])
-        sinks = self.names2idx(edge_tuples[1])
+        sinks = self.names2idx(edge_tuples[1], is_signal=is_signal)
         return [*zip(sources, sinks)]
 
     # === PROPERTIES
