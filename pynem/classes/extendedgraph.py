@@ -69,7 +69,7 @@ class ExtendedGraph:
         self._signal_amat()[(*zip(*edges),)] = 1
     
     def _attach_effect(self, signal: int, effect: int):
-        self._attachment_amat()[signal, effect - self.nsignals()]
+        self._attachment_amat()[signal, effect - self.nsignals()] = 1
     
     def _attach_effects_from(self, attachments: Iterable[Edge]):
         if len(attachments) == 0:
