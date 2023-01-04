@@ -7,7 +7,7 @@ from itertools import chain
 import numpy as np
 import scipy.sparse as sps
 
-class AugmentedGraph:
+class ExtendedGraph:
     """
     Base class for graphs over Nested Effects Models, combining both the graph over perturbed 'signal' nodes and downstream
     'effect' nodes
@@ -56,7 +56,7 @@ class AugmentedGraph:
             raise NotImplementedError ## Need to implement attach_effects_from method and have this here
 
     def __eq__(self, other):
-        if not isinstance(other, AugmentedGraph):
+        if not isinstance(other, ExtendedGraph):
             return False
         return np.array_equal(self._property_array, other._property_array) and np.array_equal(self._amat, other._amat)
     
@@ -73,7 +73,7 @@ class AugmentedGraph:
 
     def add_edge(self, i: Node, j: Node):
         """
-        Add the edge from signal ``i`` to signal ``j`` to the AugmentedGraph
+        Add the edge from signal ``i`` to signal ``j`` to the ExtendedGraph
         Parameters
         ----------
         i:
@@ -224,16 +224,16 @@ class AugmentedGraph:
     def name2idx(self, name) -> int:
         """
         Convert a given node ``name`` to its corresponding index according to the ``property_array``
-        of an AugmentedGraph object.
+        of an ExtendedGraph object.
         Parameters
         ----------
         name:
             Node name to convert to an index. Note this name must appear in the name column of the property array.
         Examples
         --------
-        >>> from pynem import AugmentedGraph
-        >>> ag = AugmentedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'])
-        >>> ag.name2idx('S1')
+        >>> from pynem import ExtendedGraph
+        >>> eg = ExtendedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'])
+        >>> eg.name2idx('S1')
         0
         """
         return np.nonzero(self._property_array['name'] == name)[0][0]
@@ -241,16 +241,16 @@ class AugmentedGraph:
     def names2idx(self, name_array) -> np.ndarray:
         """
         Convert node names given in a 1D ndarray ``name_array`` to a corresponding array of node indices 
-        according to the ``property_array`` of an AugmentedGraph object.
+        according to the ``property_array`` of an ExtendedGraph object.
         Parameters
         ----------
         name_array:
             ndarray of node names to convert to indices. Note all names must appear in the name column of the property array.
         Examples
         --------
-        >>> from pynem import AugmentedGraph
-        >>> ag = AugmentedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'])
-        >>> ag.names2idx(np.array(['S1', 'S3']))
+        >>> from pynem import ExtendedGraph
+        >>> eg = ExtendedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'])
+        >>> eg.names2idx(np.array(['S1', 'S3']))
         array([0, 2])
         """
         full_name_array = self._property_array['name']
@@ -261,17 +261,17 @@ class AugmentedGraph:
         """
         Convert an iterable of edges referring to nodes by name to a corresponding list 
         of edges referring nodes by their indices, according to the ``property_array``
-        of an AugmentedGraph object.
+        of an ExtendedGraph object.
         Parameters
         ----------
         edges:
             Iterable of edges to convert. Note all node names must appear in the name column of the property array.
         Examples
         --------
-        >>> from pynem import AugmentedGraph
-        >>> ag = AugmentedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'], \
+        >>> from pynem import ExtendedGraph
+        >>> eg = ExtendedGraph(signals = ['S1', 'S2', 'S3'], effects = ['E1', 'E2', 'E3'], \
             edges = [('S1', 'S2'), ('S2', 'S3'), ('S1', 'S3')])
-        >>> ag.edgeNames2idx([('S1', 'S2'), ('S2', 'S3')])
+        >>> eg.edgeNames2idx([('S1', 'S2'), ('S2', 'S3')])
         [(0, 1), (1, 2)]
         """
         edge_tuples = [*zip(*edges)]
