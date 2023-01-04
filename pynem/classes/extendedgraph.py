@@ -70,6 +70,8 @@ class ExtendedGraph:
     
     def _attach_effect(self, effect: int, signal: int):
         raise NotImplementedError
+        nsignals = self.nsignals()
+        self._attachment_amat()[effect - nsignals, signal - nsignals]
 
     def add_edge(self, i: Node, j: Node):
         """
@@ -133,7 +135,7 @@ class ExtendedGraph:
         return [*zip(*self._signal_amat().nonzero())]
     
     def attachments_idx(self) -> list:
-        return [*zip(*self._attachments_amat().nonzero())]
+        return [*zip(*self._attachment_amat().nonzero())]
     
     def edges(self) -> list:
         edge_array = self._signal_amat().nonzero()
@@ -142,7 +144,7 @@ class ExtendedGraph:
         return [*zip(sources, sinks)]
     
     def attachments(self) -> list:
-        edge_array = self._attachments_amat().nonzero()
+        edge_array = self._attachment_amat().nonzero()
         sources = self._property_array['name'][edge_array[0]]
         sinks = self._property_array['name'][edge_array[1]]
         return [*zip(sources, sinks)]
@@ -162,15 +164,15 @@ class ExtendedGraph:
         signal_array = self.signals()
         return (signal_amat, signal_array)
     
-    def _attachments_amat(self) -> np.ndarray:
+    def _attachment_amat(self) -> np.ndarray:
         nsignals = self.nsignals()
         return self._amat[:nsignals, nsignals:]
     
-    def attachments_amat(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        attachments_amat = self._attachments_amat().copy()
+    def attachment_amat(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        attachment_amat = self._attachment_amat().copy()
         signal_array = self.signals()
         effect_array = self.effects()
-        return (attachments_amat, signal_array, effect_array)
+        return (attachment_amat, signal_array, effect_array)
 
     # === UTILITY METHODS
 
