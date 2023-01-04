@@ -129,70 +129,23 @@ class ExtendedGraph:
     def effects(self) -> np.ndarray:
         return self._property_array['name'][self.nsignals():].copy()
     
-    def all_edges_idx(self) -> list:
-        return [*zip(*self._amat.nonzero())]
-    
-    def signal_edges_idx(self) -> list:
+    def edges_idx(self) -> list:
         return [*zip(*self._signal_amat().nonzero())]
     
-    def attachment_edges_idx(self) -> list:
-        return [*zip(*self._effect_attachments().nonzero())]
-
-    def all_edges(self) -> list:
-        edge_array = self._amat.nonzero()
-        sources = self._property_array['name'][edge_array[0]]
-        sinks = self._property_array['name'][edge_array[1]]
-        return [*zip(sources, sinks)]
+    def attachments_idx(self) -> list:
+        return [*zip(*self._attachments_amat().nonzero())]
     
-    def signal_edges(self) -> list:
+    def edges(self) -> list:
         edge_array = self._signal_amat().nonzero()
         sources = self._property_array['name'][edge_array[0]]
         sinks = self._property_array['name'][edge_array[1]]
         return [*zip(sources, sinks)]
     
-    def attachment_edges(self) -> list:
-        edge_array = self._effect_attachments().nonzero()
+    def attachments(self) -> list:
+        edge_array = self._attachments_amat().nonzero()
         sources = self._property_array['name'][edge_array[0]]
         sinks = self._property_array['name'][edge_array[1]]
         return [*zip(sources, sinks)]
-    
-    def edges(self, edge_type: str = "signal", name: bool = True) -> list:
-        """
-        Return list of edges present either in the signal graph (``edge_type = "signal"``),
-        describing the effect attachments (``edge_type = "attachments"``) or both (``edge_type = "all"``).
-        Refer to the nodes by name (``name = True``) or by index (``name = False``).
-        Parameters
-        ----------
-        edge_type:
-            Either "signal", "attachments" or "all" to return only the edges from the signal graph,
-            those connecting signals to effects, or both, respectively. Default "signal".
-        name:
-            If True, then nodes will be referred to by their names according to the property_array,
-            or else referred to by their indices.
-        See Also
-        --------
-        all_edges
-        signal_edges
-        attachment_edges
-        Examples
-        --------
-        """
-        if edge_type not in ['signal', 'attachment', 'all']:
-            raise ValueError("edge_type must be either 'all', 'signal' or 'attachment")
-        if name:
-            if edge_type == "signal":
-                return self.signal_edges()
-            elif edge_type == "attachment":
-                return self.attachment_edges()
-            else:
-                return self.all_edges()
-        else:
-            if edge_type == "signal":
-                return self.signal_edges_idx()
-            elif edge_type == "attachment":
-                return self.attachment_edges_idx()
-            else:
-                return self.all_edges_idx()
 
     # === KEY METHODS
 
@@ -209,15 +162,15 @@ class ExtendedGraph:
         signal_array = self.signals()
         return (signal_amat, signal_array)
     
-    def _effect_attachments(self) -> np.ndarray:
+    def _attachments_amat(self) -> np.ndarray:
         nsignals = self.nsignals()
         return self._amat[:nsignals, nsignals:]
     
-    def effect_attachments(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        effect_attachments = self._effect_attachments().copy()
+    def attachments_amat(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        attachments_amat = self._attachments_amat().copy()
         signal_array = self.signals()
         effect_array = self.effects()
-        return (effect_attachments, signal_array, effect_array)
+        return (attachments_amat, signal_array, effect_array)
 
     # === UTILITY METHODS
 
