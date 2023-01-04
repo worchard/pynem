@@ -1,4 +1,4 @@
 from .signalgraph import *
 from .effectattachments import *
-from .augmentedgraph import *
+from .extendedgraph import *
 from .nem import *
