@@ -272,4 +272,4 @@ class ExtendedGraph:
     
     @property
     def amat(self) -> np.ndarray:
-        return (self._amat.copy(), self._property_array['name'].copy())
+        return (self._amat.copy(), self.signals(), self._property_array['name'].copy())
