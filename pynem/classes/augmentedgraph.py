@@ -1,8 +1,8 @@
 from collections import defaultdict
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
 
-from pynem.utils import core_utils
 from pynem.custom_types import *
+from itertools import chain
 
 import numpy as np
 import scipy.sparse as sps
@@ -32,26 +32,28 @@ class AugmentedGraph:
     #         self._children = defaultdict(set)
     #         self.add_edges_from(edges)
 
-    def __init__(self, signals: Iterable[Node] = list(), effects: Iterable[Node] = list(), 
-                 edges: Iterable[Edge] = list(), graph = None):
+    def __init__(self, signals: Iterable[Node] = set(), effects: Iterable[Node] = set(), 
+                 edges: Iterable[Edge] = set(), effect_attachments: Iterable[Edge] = set(), 
+                 graph = None):
         if graph is not None:
             pass
         else:
-            len_signals = len(signals)
-            len_effects = len(effects)
-            
-            self._nnodes = len_signals + len_effects
-            self._nodes = np.array(range(self._nnodes))
-            self._signals = self._nodes[:len_signals] ##TODO Do I need this line and below?
-            self._effects = self._nodes[len_signals:]
+            signals = set(signals)
+            effects = set(effects)
+            signals.update(set(chain(*edges)))
+            effects.update(set(chain(*effect_attachments)))
+            nsignals = len(signals)
+            neffects = len(effects)
+            nnodes = nsignals + neffects
             
             #initialise and populate property array
-            self._property_array = np.empty(self._nnodes, dtype={'names':('name', 'is_signal'), 'formats': ('object', 'b')})
+            self._property_array = np.empty(nnodes, dtype={'names':('name', 'is_signal'), 'formats': ('object', 'b')})
             self._property_array['name'] = np.array(list(signals) + list(effects))
-            self._property_array['is_signal'] = np.array([True]*len_signals + [False]*len_effects)
+            self._property_array['is_signal'] = np.array([True]*nsignals + [False]*neffects)
 
-            self._amat = np.zeros((self._nnodes, self._nnodes))
+            self._amat = np.zeros((nsignals, nnodes))
             self.add_edges_from(edges)
+            raise NotImplementedError ## Need to implement attach_effects_from method and have this here
 
     def __eq__(self, other):
         if not isinstance(other, AugmentedGraph):
@@ -59,22 +61,25 @@ class AugmentedGraph:
         return np.array_equal(self._property_array, other._property_array) and np.array_equal(self._amat, other._amat)
     
     def _add_edge(self, i: int, j: int):
-        self._amat[i, j] = 1
+        self._signal_amat()[i, j] = 1
     
     def _add_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
             return
-        self._amat[(*zip(*edges),)] = 1
+        self._signal_amat()[(*zip(*edges),)] = 1
+    
+    def _attach_effect(self, effect: int, signal: int):
+        raise NotImplementedError
 
     def add_edge(self, i: Node, j: Node):
         """
-        Add the edge ``i`` -> ``j`` to the AugmentedGraph
+        Add the edge from signal ``i`` to signal ``j`` to the AugmentedGraph
         Parameters
         ----------
         i:
-            source node of the edge
+            source signal node of the edge
         j:
-            target node of the edge
+            target signal node of the edge
         
         See Also
         --------
@@ -82,18 +87,17 @@ class AugmentedGraph:
         Examples
         --------
         """
-        i = core_utils.name2idx(self._property_array, i)
-        j = core_utils.name2idx(self._property_array, j)
+        i = self.name2idx(i)
+        j = self.name2idx(j)
         self._add_edge(i, j)
     
     def add_edges_from(self, edges: Iterable[Edge]):
         """
-        Add edges to the graph from the collection ``edges``.
+        Add edges between signals to the graph from the collection ``edges``.
         Parameters
         ----------
         edges:
             collection of edges to be added.
-
         See Also
         --------
         add_edge
@@ -102,7 +106,7 @@ class AugmentedGraph:
         """
         if len(edges) == 0:
             return
-        edges_idx = core_utils.edgeNames2idx(self._property_array, edges)
+        edges_idx = self.edgeNames2idx(edges)
         self._add_edges_from(edges_idx)
 
     # === BASIC METHODS
@@ -119,15 +123,77 @@ class AugmentedGraph:
     def signals(self) -> np.ndarray:
         return self._property_array['name'][:self.nsignals()].copy()
     
-    def edges_idx(self) -> list:
+    def effects_idx(self) -> np.ndarray:
+        return np.array(range(self.neffects(), self._property_array.shape[0]))
+    
+    def effects(self) -> np.ndarray:
+        return self._property_array['name'][self.nsignals():].copy()
+    
+    def all_edges_idx(self) -> list:
         return [*zip(*self._amat.nonzero())]
+    
+    def signal_edges_idx(self) -> list:
+        return [*zip(*self._signal_amat().nonzero())]
+    
+    def attachment_edges_idx(self) -> list:
+        return [*zip(*self._effect_attachments().nonzero())]
 
-    def edges(self) -> list:
+    def all_edges(self) -> list:
         edge_array = self._amat.nonzero()
         sources = self._property_array['name'][edge_array[0]]
         sinks = self._property_array['name'][edge_array[1]]
         return [*zip(sources, sinks)]
     
+    def signal_edges(self) -> list:
+        edge_array = self._signal_amat().nonzero()
+        sources = self._property_array['name'][edge_array[0]]
+        sinks = self._property_array['name'][edge_array[1]]
+        return [*zip(sources, sinks)]
+    
+    def attachment_edges(self) -> list:
+        edge_array = self._effect_attachments().nonzero()
+        sources = self._property_array['name'][edge_array[0]]
+        sinks = self._property_array['name'][edge_array[1]]
+        return [*zip(sources, sinks)]
+    
+    def edges(self, edge_type: str = "signal", name: bool = True) -> list:
+        """
+        Return list of edges present either in the signal graph (``edge_type = "signal"``),
+        describing the effect attachments (``edge_type = "attachments"``) or both (``edge_type = "all"``).
+        Refer to the nodes by name (``name = True``) or by index (``name = False``).
+        Parameters
+        ----------
+        edge_type:
+            Either "signal", "attachments" or "all" to return only the edges from the signal graph,
+            those connecting signals to effects, or both, respectively. Default "signal".
+        name:
+            If True, then nodes will be referred to by their names according to the property_array,
+            or else referred to by their indices.
+        See Also
+        --------
+        all_edges
+        signal_edges
+        attachment_edges
+        Examples
+        --------
+        """
+        if edge_type not in ['signal', 'attachment', 'all']:
+            raise ValueError("edge_type must be either 'all', 'signal' or 'attachment")
+        if name:
+            if edge_type == "signal":
+                return self.signal_edges()
+            elif edge_type == "attachment":
+                return self.attachment_edges()
+            else:
+                return self.all_edges()
+        else:
+            if edge_type == "signal":
+                return self.signal_edges_idx()
+            elif edge_type == "attachment":
+                return self.attachment_edges_idx()
+            else:
+                return self.all_edges_idx()
+
     # === KEY METHODS
 
     def add_signal(self, signal_name = None):
@@ -139,9 +205,8 @@ class AugmentedGraph:
         return self._amat[:nsignals, :nsignals]
 
     def signal_amat(self) -> Tuple[np.ndarray, np.ndarray]:
-        nsignals = self.nsignals()
         signal_amat = self._signal_amat().copy()
-        signal_array = self._property_array['name'][:nsignals].copy()
+        signal_array = self.signals()
         return (signal_amat, signal_array)
     
     def _effect_attachments(self) -> np.ndarray:
@@ -149,10 +214,9 @@ class AugmentedGraph:
         return self._amat[:nsignals, nsignals:]
     
     def effect_attachments(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        nsignals = self.nsignals()
         effect_attachments = self._effect_attachments().copy()
-        signal_array = self._property_array['name'][:nsignals].copy()
-        effect_array = self._property_array['name'][nsignals:].copy()
+        signal_array = self.signals()
+        effect_array = self.effects()
         return (effect_attachments, signal_array, effect_array)
 
     # === UTILITY METHODS
@@ -220,3 +284,7 @@ class AugmentedGraph:
     @property
     def property_array(self) -> np.ndarray:
         return self._property_array.copy()
+    
+    @property
+    def amat(self) -> np.ndarray:
+        return (self._amat.copy(), self._property_array['name'].copy())
