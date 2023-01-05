@@ -62,14 +62,25 @@ class ExtendedGraph:
     
     def _add_edge(self, i: int, j: int):
         self._signal_amat()[i, j] = 1
+
+    def _remove_edge(self, i: int, j: int):
+        self._signal_amat()[i, j] = 0
     
     def _add_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
             return
         self._signal_amat()[(*zip(*edges),)] = 1
     
+    def _remove_edges_from(self, edges: Iterable[Edge]):
+        if len(edges) == 0:
+            return
+        self._signal_amat()[(*zip(*edges),)] = 0
+    
     def _attach_effect(self, signal: int, effect: int):
         self._attachment_amat()[signal, effect - self.nsignals()] = 1
+    
+    def _detach_effect(self, signal: int, effect: int):
+        self._attachment_amat()[signal, effect - self.nsignals()] = 0
     
     def _attach_effects_from(self, attachments: Iterable[Edge]):
         if len(attachments) == 0:
@@ -77,6 +88,13 @@ class ExtendedGraph:
         addition_array = np.array((*zip(*attachments),))
         addition_array[1,] -= self.nsignals()
         self._attachment_amat()[tuple(addition_array)] = 1
+    
+    def _detach_effects_from(self, attachments: Iterable[Edge]):
+        if len(attachments) == 0:
+            return
+        addition_array = np.array((*zip(*attachments),))
+        addition_array[1,] -= self.nsignals()
+        self._attachment_amat()[tuple(addition_array)] = 0
 
     def add_edge(self, i: Node, j: Node):
         """
@@ -98,6 +116,26 @@ class ExtendedGraph:
         j = self.name2idx(j)
         self._add_edge(i, j)
     
+    def remove_edge(self, i: Node, j: Node):
+        """
+        Remove the edge from signal ``i`` to signal ``j`` to the ExtendedGraph
+        Parameters
+        ----------
+        i:
+            source signal node of the edge
+        j:
+            target signal node of the edge
+        
+        See Also
+        --------
+        add_edges_from
+        Examples
+        --------
+        """
+        i = self.name2idx(i)
+        j = self.name2idx(j)
+        self._remove_edge(i, j)
+    
     def add_edges_from(self, edges: Iterable[Edge]):
         """
         Add edges between signals to the graph from the collection ``edges``.
@@ -116,16 +154,45 @@ class ExtendedGraph:
         edges_idx = self.edgeNames2idx(edges)
         self._add_edges_from(edges_idx)
     
+    def remove_edges_from(self, edges: Iterable[Edge]):
+        """
+        Remove edges between signals to the graph from the collection ``edges``.
+        Parameters
+        ----------
+        edges:
+            collection of edges to be removed.
+        See Also
+        --------
+        add_edge
+        Examples
+        --------
+        """
+        if len(edges) == 0:
+            return
+        edges_idx = self.edgeNames2idx(edges)
+        self._remove_edges_from(edges_idx)
+    
     def attach_effect(self, signal: Node, effect: Node):
         signal = self.name2idx(signal)
         effect = self.name2idx(effect, is_signal=False)
         self._attach_effect(signal, effect)
+    
+    def detach_effect(self, signal: Node, effect: Node):
+        signal = self.name2idx(signal)
+        effect = self.name2idx(effect, is_signal=False)
+        self._detach_effect(signal, effect)
 
     def attach_effects_from(self, attachments: Iterable[Edge]):
         if len(attachments) == 0:
             return
         attachments_idx = self.edgeNames2idx(attachments, is_signal=False)
         self._attach_effects_from(attachments_idx)
+    
+    def detach_effects_from(self, attachments: Iterable[Edge]):
+        if len(attachments) == 0:
+            return
+        attachments_idx = self.edgeNames2idx(attachments, is_signal=False)
+        self._detach_effects_from(attachments_idx)
 
     # === BASIC METHODS
 
