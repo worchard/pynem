@@ -51,6 +51,9 @@ class ExtendedGraph:
             self._property_array['name'] = np.array(list(signals) + list(effects))
             self._property_array['is_signal'] = np.array([True]*nsignals + [False]*neffects)
 
+            self._parents = defaultdict(set)
+            self._children = defaultdict(set)
+
             self._amat = np.zeros((nsignals, nnodes))
             self.add_edges_from(edges)
             self.attach_effects_from(effect_attachments)
@@ -62,20 +65,42 @@ class ExtendedGraph:
     
     def _add_edge(self, i: int, j: int):
         self._signal_amat()[i, j] = 1
+        self._parents[j].add(i)
+        self._children[i].add(j)
 
-    def _remove_edge(self, i: int, j: int):
+    def _remove_edge(self, i: int, j: int, ignore_error: bool = False):
         self._signal_amat()[i, j] = 0
+        try:
+            self._parents[j].remove(i)
+            self._children[i].remove(j)
+        except KeyError as e:
+            if ignore_error:
+                pass
+            else:
+                raise e
     
     def _add_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
             return
-        self._signal_amat()[(*zip(*edges),)] = 1
+        for i, j in edges:
+            self._signal_amat()[i, j] = 1
+            self._parents[j].add(i)
+            self._children[i].add(j)
     
-    def _remove_edges_from(self, edges: Iterable[Edge]):
+    def _remove_edges_from(self, edges: Iterable[Edge], ignore_error: bool = False):
         if len(edges) == 0:
             return
-        self._signal_amat()[(*zip(*edges),)] = 0
-    
+        for i, j in edges:
+            self._signal_amat()[i, j] = 0
+            try:
+                self._parents[j].remove(i)
+                self._children[i].remove(j)
+            except KeyError as e:
+                if ignore_error:
+                    pass
+                else:
+                    raise e
+
     def _attach_effect(self, signal: int, effect: int):
         self._attachment_amat()[signal, effect - self.nsignals()] = 1
     
@@ -85,16 +110,16 @@ class ExtendedGraph:
     def _attach_effects_from(self, attachments: Iterable[Edge]):
         if len(attachments) == 0:
             return
-        addition_array = np.array((*zip(*attachments),))
-        addition_array[1,] -= self.nsignals()
-        self._attachment_amat()[tuple(addition_array)] = 1
+        nsignals = self.nsignals()
+        for i, j in attachments:
+            self._attachment_amat()[i, j - nsignals] = 1
     
     def _detach_effects_from(self, attachments: Iterable[Edge]):
         if len(attachments) == 0:
             return
-        addition_array = np.array((*zip(*attachments),))
-        addition_array[1,] -= self.nsignals()
-        self._attachment_amat()[tuple(addition_array)] = 0
+        nsignals = self.nsignals()
+        for i, j in attachments:
+            self._attachment_amat()[i, j - nsignals] = 0
 
     def add_edge(self, i: Node, j: Node):
         """
