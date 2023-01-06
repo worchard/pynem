@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
+import warnings
 
 from pynem.custom_types import *
 from itertools import chain
@@ -55,6 +56,7 @@ class ExtendedGraph:
             self._children = defaultdict(set)
 
             self._amat = np.zeros((nsignals, nnodes))
+            np.fill_diagonal(self._signal_amat(), 1)
             self.add_edges_from(edges)
             self.attach_effects_from(effect_attachments)
 
@@ -64,11 +66,17 @@ class ExtendedGraph:
         return np.array_equal(self._property_array, other._property_array) and np.array_equal(self._amat, other._amat)
     
     def _add_edge(self, i: int, j: int):
+        if i == j:
+            warnings.warn("Self loops are present by default so adding them does nothing!")
+            return
         self._signal_amat()[i, j] = 1
         self._parents[j].add(i)
         self._children[i].add(j)
 
     def _remove_edge(self, i: int, j: int, ignore_error: bool = False):
+        if i == j:
+            warnings.warn("Self loops are present by default and cannot be removed!")
+            return
         self._signal_amat()[i, j] = 0
         try:
             self._parents[j].remove(i)
@@ -83,6 +91,9 @@ class ExtendedGraph:
         if len(edges) == 0:
             return
         for i, j in edges:
+            if i == j:
+                warnings.warn("Self loops are present by default so adding them does nothing!")
+                continue
             self._signal_amat()[i, j] = 1
             self._parents[j].add(i)
             self._children[i].add(j)
@@ -91,6 +102,9 @@ class ExtendedGraph:
         if len(edges) == 0:
             return
         for i, j in edges:
+            if i == j:
+                warnings.warn("Self loops are present by default and cannot be removed!")
+                continue
             self._signal_amat()[i, j] = 0
             try:
                 self._parents[j].remove(i)
@@ -259,7 +273,7 @@ class ExtendedGraph:
 
     # === KEY METHODS
 
-    def add_signal(self, signal_name = None):
+    def add_signal(self, name = None):
         raise NotImplementedError
         nsignals = self.nsignals()
 
