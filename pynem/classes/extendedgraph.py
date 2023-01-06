@@ -34,7 +34,7 @@ class ExtendedGraph:
     #         self.add_edges_from(edges)
 
     def __init__(self, signals: Iterable[Node] = set(), effects: Iterable[Node] = set(), 
-                 edges: Iterable[Edge] = set(), effect_attachments: Iterable[Edge] = set(), 
+                 edges: Iterable[Edge] = set(), attachments: Iterable[Edge] = set(), 
                  graph = None):
         if graph is not None:
             pass
@@ -42,7 +42,7 @@ class ExtendedGraph:
             signals = set(signals)
             effects = set(effects)
             signals.update(set(chain(*edges)))
-            effects.update(set(chain(*effect_attachments)))
+            effects.update(set(chain(*attachments)))
             nsignals = len(signals)
             neffects = len(effects)
             nnodes = nsignals + neffects
@@ -58,7 +58,7 @@ class ExtendedGraph:
             self._amat = np.zeros((nsignals, nnodes))
             np.fill_diagonal(self._signal_amat(), 1)
             self.add_edges_from(edges)
-            self.attach_effects_from(effect_attachments)
+            self.attach_effects_from(attachments)
 
     def __eq__(self, other):
         if not isinstance(other, ExtendedGraph):
