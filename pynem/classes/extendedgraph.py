@@ -43,19 +43,19 @@ class ExtendedGraph:
             effects = set(effects)
             signals.update(set(chain(*edges)))
             effects.update(set(chain(*attachments)))
-            nsignals = len(signals)
-            neffects = len(effects)
-            nnodes = nsignals + neffects
+            self._nsignals = len(signals)
+            self._neffects = len(effects)
+            nnodes = self._nsignals + self._neffects
             
             #initialise and populate property array
-            self._property_array = np.empty(nnodes, dtype={'names':('name', 'is_signal'), 'formats': ('object', 'b')})
+            self._property_array = np.empty(nnodes, dtype={'names':('name', 'is_signal'), 'formats': ('object', 'B')})
             self._property_array['name'] = np.array(list(signals) + list(effects))
-            self._property_array['is_signal'] = np.array([True]*nsignals + [False]*neffects)
+            self._property_array['is_signal'] = np.array([True]*self._nsignals + [False]*self._neffects)
 
             self._parents = defaultdict(set)
             self._children = defaultdict(set)
 
-            self._amat = np.zeros((nsignals, nnodes))
+            self._amat = np.zeros((self._nsignals, nnodes), dtype='B')
             np.fill_diagonal(self._signal_amat(), 1)
             self.add_edges_from(edges)
             self.attach_effects_from(attachments)
@@ -116,24 +116,24 @@ class ExtendedGraph:
                     raise e
 
     def _attach_effect(self, signal: int, effect: int):
-        self._attachment_amat()[signal, effect - self.nsignals()] = 1
+        self._detach_effect(effect)
+        self._attachment_amat()[signal, effect - self._nsignals] = 1
     
-    def _detach_effect(self, signal: int, effect: int):
-        self._attachment_amat()[signal, effect - self.nsignals()] = 0
+    def _detach_effect(self, effect: int):
+        self._attachment_amat()[:, effect - self._nsignals] = 0
     
     def _attach_effects_from(self, attachments: Iterable[Edge]):
         if len(attachments) == 0:
             return
-        nsignals = self.nsignals()
         for i, j in attachments:
-            self._attachment_amat()[i, j - nsignals] = 1
+            self._detach_effect(j)
+            self._attachment_amat()[i, j - self._nsignals] = 1
     
-    def _detach_effects_from(self, attachments: Iterable[Edge]):
-        if len(attachments) == 0:
+    def _detach_effects_from(self, effects: Iterable[Node]):
+        if len(effects) == 0:
             return
-        nsignals = self.nsignals()
-        for i, j in attachments:
-            self._attachment_amat()[i, j - nsignals] = 0
+        for effect in effects:
+            self._attachment_amat()[:, effect - self._nsignals] = 0
 
     def add_edge(self, i: Node, j: Node):
         """
@@ -216,10 +216,9 @@ class ExtendedGraph:
         effect = self.name2idx(effect, is_signal=False)
         self._attach_effect(signal, effect)
     
-    def detach_effect(self, signal: Node, effect: Node):
-        signal = self.name2idx(signal)
+    def detach_effect(self, effect: Node):
         effect = self.name2idx(effect, is_signal=False)
-        self._detach_effect(signal, effect)
+        self._detach_effect(effect)
 
     def attach_effects_from(self, attachments: Iterable[Edge]):
         if len(attachments) == 0:
@@ -227,31 +226,25 @@ class ExtendedGraph:
         attachments_idx = self.edgeNames2idx(attachments, is_signal=False)
         self._attach_effects_from(attachments_idx)
     
-    def detach_effects_from(self, attachments: Iterable[Edge]):
-        if len(attachments) == 0:
+    def detach_effects_from(self, effects: Iterable[Node]):
+        if len(effects) == 0:
             return
-        attachments_idx = self.edgeNames2idx(attachments, is_signal=False)
-        self._detach_effects_from(attachments_idx)
+        effects_idx = self.names2idx(effects, is_signal=False)
+        self._detach_effects_from(effects_idx)
 
     # === BASIC METHODS
-
-    def nsignals(self) -> int:
-        return self._property_array['is_signal'].sum()
-    
-    def neffects(self) -> int:
-        return self._property_array.shape[0] - self.nsignals()
     
     def signals_idx(self) -> np.ndarray:
-        return np.array(range(self.nsignals()))
+        return np.array(range(self._nsignals))
     
     def signals(self) -> np.ndarray:
-        return self._property_array['name'][:self.nsignals()].copy()
+        return self._property_array['name'][:self._nsignals].copy()
     
     def effects_idx(self) -> np.ndarray:
         return np.array(range(self.neffects(), self._property_array.shape[0]))
     
     def effects(self) -> np.ndarray:
-        return self._property_array['name'][self.nsignals():].copy()
+        return self._property_array['name'][self._nsignals:].copy()
     
     def edges_idx(self) -> list:
         return [*zip(*self._signal_amat().nonzero())]
@@ -275,11 +268,9 @@ class ExtendedGraph:
 
     def add_signal(self, name = None):
         raise NotImplementedError
-        nsignals = self.nsignals()
 
     def _signal_amat(self) -> np.ndarray:
-        nsignals = self.nsignals()
-        return self._amat[:nsignals, :nsignals]
+        return self._amat[:self._nsignals, :self._nsignals]
 
     def signal_amat(self) -> Tuple[np.ndarray, np.ndarray]:
         signal_amat = self._signal_amat().copy()
@@ -287,8 +278,7 @@ class ExtendedGraph:
         return (signal_amat, signal_array)
     
     def _attachment_amat(self) -> np.ndarray:
-        nsignals = self.nsignals()
-        return self._amat[:nsignals, nsignals:]
+        return self._amat[:self._nsignals, self._nsignals:]
     
     def attachment_amat(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         attachment_amat = self._attachment_amat().copy()
@@ -319,7 +309,7 @@ class ExtendedGraph:
         if is_signal:
             return np.nonzero(self._property_array['name'][mask] == name)[0][0]
         else:
-            return np.nonzero(self._property_array['name'][mask] == name)[0][0] + self.nsignals()
+            return np.nonzero(self._property_array['name'][mask] == name)[0][0] + self._nsignals
 
     def names2idx(self, name_array, is_signal: bool = True) -> np.ndarray:
         """
@@ -344,7 +334,7 @@ class ExtendedGraph:
         if is_signal:
             return sorter[np.searchsorted(full_name_array, name_array, sorter=sorter)]
         else:
-            return sorter[np.searchsorted(full_name_array, name_array, sorter=sorter)] + self.nsignals()
+            return sorter[np.searchsorted(full_name_array, name_array, sorter=sorter)] + self._nsignals
 
     def edgeNames2idx(self, edges, is_signal: bool = True) -> list:
         """
@@ -372,6 +362,14 @@ class ExtendedGraph:
 
     # === PROPERTIES
 
+    @property
+    def nsignals(self) -> int:
+        return self._nsignals
+    
+    @property
+    def neffects(self) -> int:
+        return self._neffects
+    
     @property
     def property_array(self) -> np.ndarray:
         return self._property_array.copy()
