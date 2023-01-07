@@ -277,6 +277,7 @@ class ExtendedGraph:
         #Then the property array
         if not name:
             name = self.nsignals
+        ### --- following line needs modifying if new properties become supported --- ###
         self._property_array = np.insert(self._property_array, self.nsignals, (name, 1))
 
         #finally update nsignals
