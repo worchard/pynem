@@ -267,6 +267,8 @@ class ExtendedGraph:
     # === KEY METHODS
 
     def add_signal(self, name = None):
+        new_amat = np.zeros((self._amat.shape[0] + 1, self._amat.shape[1] + 1), dtype='B')
+
         raise NotImplementedError
 
     def _signal_amat(self) -> np.ndarray:
@@ -369,6 +371,10 @@ class ExtendedGraph:
     @property
     def neffects(self) -> int:
         return self._neffects
+    
+    @property
+    def nnodes(self) -> int:
+        return self._amat.shape[1]
     
     @property
     def property_array(self) -> np.ndarray:
