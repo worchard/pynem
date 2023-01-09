@@ -25,3 +25,11 @@ def defdict2dict(defdict, keys):
     defdict_keys = defdict.keys()
     d = {k: defdict[k] if k in defdict_keys else factory() for k in keys}
     return d
+
+def get_unique_name(name, name_universe):
+  i = 1
+  orig_name = name
+  while name in name_universe:
+    name = f"{orig_name}_{i}"
+    i += 1
+  return name
