@@ -266,7 +266,7 @@ class ExtendedGraph:
 
     # === KEY METHODS
 
-    def add_signal(self, name = None):
+    def add_signal(self, name = "as_index"):
         #First redo the adjacency matrix
         new_amat = np.zeros((self._amat.shape[0] + 1, self._amat.shape[1] + 1), dtype='B')
         orig_cols = np.append(range(self.nsignals), range(self.nsignals+1, self.nnodes + 1))
@@ -275,14 +275,14 @@ class ExtendedGraph:
         self._amat[self.nsignals, self.nsignals] = 1 #add self-loop
 
         #Then the property array
-        if not name:
+        if name == "as_index":
             name = self.nsignals
         ### --- following line needs modifying if new properties become supported --- ###
         self._property_array = np.insert(self._property_array, self.nsignals, (name, 1))
 
         #finally update nsignals
         self._nsignals += 1
-        
+    
     def _signal_amat(self) -> np.ndarray:
         return self._amat[:self._nsignals, :self._nsignals]
 
