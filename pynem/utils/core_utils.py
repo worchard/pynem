@@ -27,9 +27,13 @@ def defdict2dict(defdict, keys):
     return d
 
 def get_unique_name(name, name_universe):
-  i = 1
-  orig_name = name
-  while name in name_universe:
-    name = f"{orig_name}_{i}"
-    i += 1
+  if isinstance(name, int):
+    while name in name_universe:
+        name += 1
+  else:
+    i = 1
+    orig_name = name
+    while name in name_universe:
+        name = f"{orig_name}_{i}"
+        i += 1
   return name
