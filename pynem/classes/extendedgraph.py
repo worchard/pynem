@@ -271,7 +271,8 @@ class ExtendedGraph:
         #First redo the adjacency matrix
         new_amat = np.zeros((self._amat.shape[0] + 1, self._amat.shape[1] + 1), dtype='B')
         orig_cols = np.append(range(self.nsignals), range(self.nsignals+1, self.nnodes + 1))
-        new_amat[:self.nsignals, orig_cols] = self._amat
+        if self.nsignals > 0:
+            new_amat[:self.nsignals, orig_cols] = self._amat
         self._amat = new_amat
         self._amat[self.nsignals, self.nsignals] = 1 #add self-loop
 
