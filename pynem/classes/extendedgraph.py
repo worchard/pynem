@@ -287,6 +287,17 @@ class ExtendedGraph:
         #finally update nsignals
         self._nsignals += 1
     
+    def add_effect(self, name = "as_index"):
+        self._amat = np.c_[self._amat, np.zeros(self.nsignals, dtype='B')]
+        if name == "as_index":
+            name = self.nnodes
+        new_name = core_utils.get_unique_name(name, self.effects())
+        if new_name != name:
+            warnings.warn(f"Effect name changed to {new_name} to avoid a clash with an existing effect")
+        new_row = np.array((new_name, 0), dtype={'names': ('name', 'is_signal'), 'formats': ('object', 'B')})
+        self._property_array = np.r_[self._property_array, new_row]
+        self._neffects += 1
+    
     def _signal_amat(self) -> np.ndarray:
         return self._amat[:self._nsignals, :self._nsignals]
 
