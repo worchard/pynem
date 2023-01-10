@@ -1,9 +1,10 @@
 from collections import defaultdict
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
 import warnings
-
-from pynem.custom_types import *
 from itertools import chain
+
+from pynem.utils import core_utils
+from pynem.custom_types import *
 
 import numpy as np
 import scipy.sparse as sps
@@ -277,8 +278,11 @@ class ExtendedGraph:
         #Then the property array
         if name == "as_index":
             name = self.nsignals
+        new_name = core_utils.get_unique_name(name, self.signals())
+        if new_name != name:
+            warnings.warn(f"Signal name changed to {new_name} to avoid a clash with an existing signal")
         ### --- following line needs modifying if new properties become supported --- ###
-        self._property_array = np.insert(self._property_array, self.nsignals, (name, 1))
+        self._property_array = np.insert(self._property_array, self.nsignals, (new_name, 1))
 
         #finally update nsignals
         self._nsignals += 1
