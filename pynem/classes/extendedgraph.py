@@ -242,7 +242,7 @@ class ExtendedGraph:
         return self._property_array['name'][:self._nsignals].copy()
     
     def effects_idx(self) -> np.ndarray:
-        return np.array(range(self.neffects(), self._property_array.shape[0]))
+        return np.array(range(self._nsignals, self._property_array.shape[0]))
     
     def effects(self) -> np.ndarray:
         return self._property_array['name'][self._nsignals:].copy()
@@ -299,6 +299,30 @@ class ExtendedGraph:
         self._property_array = np.r_[self._property_array, new_row]
         self._neffects += 1
     
+    def _remove_signal(self, signal):
+        if signal not in self.signals_idx():
+            raise KeyError("Signal not in graph")
+        orig_cols = np.append(range(signal), range(signal+1, self.nnodes)).astype('B')
+        self._amat = self._amat[orig_cols[:self.nsignals - 1]][:, orig_cols]
+        self._property_array = np.delete(self._property_array, signal, 0)
+        self._nsignals -= 1
+    
+    def remove_signal(self, signal):
+        signal = self.name2idx(signal)
+        self._remove_signal(signal)
+    
+    def _remove_effect(self, effect):
+        if effect not in self.effects_idx():
+            raise KeyError("Effect not in graph")
+        orig_cols = np.append(range(effect), range(effect+1, self.nnodes)).astype('B')
+        self._amat = self._amat[:, orig_cols]
+        self._property_array = np.delete(self._property_array, effect, 0)
+        self._neffects -= 1
+    
+    def remove_effect(self, effect):
+        effect = self.name2idx(effect, is_signal=False)
+        self._remove_effect(effect)
+
     def _signal_amat(self) -> np.ndarray:
         return self._amat[:self._nsignals, :self._nsignals]
 
