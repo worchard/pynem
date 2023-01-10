@@ -14,26 +14,6 @@ class ExtendedGraph:
     Base class for graphs over Nested Effects Models, combining both the graph over perturbed 'signal' nodes and downstream
     'effect' nodes
     """
-    # def __init__(self, nodes: Set[Node] = set(), edges: Set[Edge] = set(), signal_graph = None):
-    #     self._amat_tuple = None
-    #     if signal_graph is not None:
-    #         self._nodes = set(signal_graph._nodes)
-    #         self._edges = set(signal_graph._edges)
-    #         self._parents = defaultdict(set)
-    #         for node, par in signal_graph._parents.items():
-    #             self._parents[node] = set(par)
-    #         self._children = defaultdict(set)
-    #         for node, ch in signal_graph._children.items():
-    #             self._children[node] = set(ch)
-    #         self._amat_tuple = signal_graph.amat_tuple
-            
-    #     else:
-    #         self._nodes = set(nodes)
-    #         self._edges = set()
-    #         self._parents = defaultdict(set)
-    #         self._children = defaultdict(set)
-    #         self.add_edges_from(edges)
-
     def __init__(self, signals: Iterable[Node] = set(), effects: Iterable[Node] = set(), 
                  edges: Iterable[Edge] = set(), attachments: Iterable[Edge] = set(), 
                  graph = None):
