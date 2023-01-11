@@ -97,6 +97,41 @@ class ExtendedGraph:
         effect_array = self.effects()
         return (attachment_amat, signal_array, effect_array)
     
+    def _parents_of(self, nodes: NodeSet) -> Set[Node]:
+        """
+        Return all nodes that are parents of the node or set of nodes ``nodes``.
+        Parameters
+        ----------
+        nodes
+            A node or set of nodes.
+        See Also
+        --------
+        children_of
+        Examples
+        """
+        if isinstance(nodes, set):
+            return set.union(*(self._parents[n] for n in nodes))
+        else:
+            return self._parents[nodes].copy()
+
+    def _children_of(self, nodes: NodeSet) -> Set[Node]:
+        """
+        Return all nodes that are children of the node or set of nodes ``nodes``.
+        Parameters
+        ----------
+        nodes
+            A node or set of nodes.
+        See Also
+        --------
+        parents_of
+        Examples
+        --------
+        """
+        if isinstance(nodes, set):
+            return set.union(*(self._children[n] for n in nodes))
+        else:
+            return self._children[nodes].copy()
+    
     # === RELATION MANIPULATION METHODS PRIVATE
 
     def _add_edge(self, i: int, j: int):
@@ -310,7 +345,7 @@ class ExtendedGraph:
         self._property_array = np.delete(self._property_array, effect, 0)
         self._neffects -= 1
     
-    def remove_effect(self, effect):
+    def remove_effect(self, effect: Node):
         effect = self.name2idx(effect, is_signal=False)
         self._remove_effect(effect)
 
