@@ -37,7 +37,6 @@ class ExtendedGraph:
             self._children = defaultdict(set)
 
             self._amat = np.zeros((self._nsignals, nnodes), dtype='B')
-            #self._join_array = sps.lil_matrix((self._nsignals, self._nsignals), dtype='bool')
             np.fill_diagonal(self._signal_amat(), 1)
             self.add_edges_from(edges)
             self.attach_effects_from(attachments)
@@ -152,6 +151,9 @@ class ExtendedGraph:
             return
         for effect in effects:
             self._detach_effect(effect)
+        
+    # def _join_signals(self, i: Node, j: Node):
+    #     self.add_signal(name = frozenset({i, j}))
 
     # === RELATION MANIPULATION METHODS PUBLIC
 
@@ -293,6 +295,8 @@ class ExtendedGraph:
         self._amat = self._amat[orig_cols[:self.nsignals - 1]][:, orig_cols]
         self._property_array = np.delete(self._property_array, signal, 0)
         self._nsignals -= 1
+        self._parents.pop(signal, None)
+        self._children.pop(signal, None)
     
     def remove_signal(self, signal):
         signal = self.name2idx(signal)
