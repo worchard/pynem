@@ -314,6 +314,8 @@ class ExtendedGraph:
         self._remove_signal(signal)
     
     def _remove_signals_from(self, signals: List[int]):
+        if not np.all(np.isin(signals, self.signals_idx())):
+            raise ValueError("All signals being removed must be in the graph")
         orig_cols = [signal for signal in range(self.nnodes) if signal not in signals]
         self._amat = self._amat[orig_cols[:self.nsignals - len(signals)]][:,orig_cols]
         self._property_array = np.delete(self._property_array, signals, 0)
