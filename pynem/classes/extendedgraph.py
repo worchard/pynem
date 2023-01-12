@@ -33,9 +33,6 @@ class ExtendedGraph:
             self._property_array['name'] = np.array(list(signals) + list(effects))
             self._property_array['is_signal'] = np.array([True]*self._nsignals + [False]*self._neffects)
 
-            self._parents = defaultdict(set)
-            self._children = defaultdict(set)
-
             self._amat = np.zeros((self._nsignals, nnodes), dtype='B')
             np.fill_diagonal(self._signal_amat(), 1)
             self.add_edges_from(edges)
@@ -97,40 +94,34 @@ class ExtendedGraph:
         effect_array = self.effects()
         return (attachment_amat, signal_array, effect_array)
     
-    def _parents_of(self, nodes: NodeSet) -> Set[Node]:
+    def _parents_of(self, signals: Union[int, List[int]]) -> Set[Node]:
         """
-        Return all nodes that are parents of the node or set of nodes ``nodes``.
+        Return all signals that are parents of the signals in the list ``signals``.
         Parameters
         ----------
-        nodes
-            A node or set of nodes.
+        signals
+            A list of signals.
         See Also
         --------
         children_of
         Examples
         """
-        if isinstance(nodes, set):
-            return set.union(*(self._parents[n] for n in nodes))
-        else:
-            return self._parents[nodes].copy()
+        return set(self._signal_amat()[:,signals].nonzero()[0])
 
-    def _children_of(self, nodes: NodeSet) -> Set[Node]:
+    def _children_of(self, signals: List[int]) -> Set[Node]:
         """
-        Return all nodes that are children of the node or set of nodes ``nodes``.
+        Return all signals that are children of the signals in the list ``signals``.
         Parameters
         ----------
-        nodes
-            A node or set of nodes.
+        signals
+            A list of signals.
         See Also
         --------
         parents_of
         Examples
         --------
         """
-        if isinstance(nodes, set):
-            return set.union(*(self._children[n] for n in nodes))
-        else:
-            return self._children[nodes].copy()
+        return set(self._signal_amat()[signals].nonzero()[1])
     
     # === RELATION MANIPULATION METHODS PRIVATE
 
@@ -139,8 +130,6 @@ class ExtendedGraph:
             warnings.warn("Self loops are present by default so adding them does nothing!")
             return
         self._signal_amat()[i, j] = 1
-        self._parents[j].add(i)
-        self._children[i].add(j)
     
     def _add_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
@@ -148,25 +137,17 @@ class ExtendedGraph:
         for i, j in edges:
             self._add_edge(i, j)
 
-    def _remove_edge(self, i: int, j: int, ignore_error: bool = False):
+    def _remove_edge(self, i: int, j: int):
         if i == j:
             warnings.warn("Self loops are present by default and cannot be removed!")
             return
         self._signal_amat()[i, j] = 0
-        try:
-            self._parents[j].remove(i)
-            self._children[i].remove(j)
-        except KeyError as e:
-            if ignore_error:
-                pass
-            else:
-                raise e
     
-    def _remove_edges_from(self, edges: Iterable[Edge], ignore_error: bool = False):
+    def _remove_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
             return
         for i, j in edges:
-            self._remove_edge(i, j, ignore_error)
+            self._remove_edge(i, j)
 
     def _attach_effect(self, signal: int, effect: int):
         self._detach_effect(effect)
@@ -186,9 +167,6 @@ class ExtendedGraph:
             return
         for effect in effects:
             self._detach_effect(effect)
-        
-    # def _join_signals(self, i: Node, j: Node):
-    #     self.add_signal(name = frozenset({i, j}))
 
     # === RELATION MANIPULATION METHODS PUBLIC
 
@@ -323,23 +301,31 @@ class ExtendedGraph:
         self._property_array = np.r_[self._property_array, new_row]
         self._neffects += 1
     
-    def _remove_signal(self, signal):
+    def _remove_signal(self, signal: int):
         if signal not in self.signals_idx():
-            raise KeyError("Signal not in graph")
+            raise ValueError("Signal not in graph")
         orig_cols = np.append(range(signal), range(signal+1, self.nnodes)).astype('B')
         self._amat = self._amat[orig_cols[:self.nsignals - 1]][:, orig_cols]
         self._property_array = np.delete(self._property_array, signal, 0)
         self._nsignals -= 1
-        self._parents.pop(signal, None)
-        self._children.pop(signal, None)
     
     def remove_signal(self, signal):
         signal = self.name2idx(signal)
         self._remove_signal(signal)
     
+    def _remove_signals_from(self, signals: List[int]):
+        orig_cols = [signal for signal in range(self.nnodes) if signal not in signals]
+        self._amat = self._amat[orig_cols[:self.nsignals - len(signals)]][:,orig_cols]
+        self._property_array = np.delete(self._property_array, signals, 0)
+        self._nsignals -= len(signals)
+    
+    def remove_signals_from(self, signals: List[int]):
+        signals = self.names2idx(np.array(signals))
+        self._remove_signals_from(signals)
+    
     def _remove_effect(self, effect):
         if effect not in self.effects_idx():
-            raise KeyError("Effect not in graph")
+            raise ValueError("Effect not in graph")
         orig_cols = np.append(range(effect), range(effect+1, self.nnodes)).astype('B')
         self._amat = self._amat[:, orig_cols]
         self._property_array = np.delete(self._property_array, effect, 0)
@@ -348,6 +334,43 @@ class ExtendedGraph:
     def remove_effect(self, effect: Node):
         effect = self.name2idx(effect, is_signal=False)
         self._remove_effect(effect)
+    
+    def _join_signals(self, i: int, j: int):
+        """
+        Join the nodes ``i`` and ``j`` into a single multi-node.
+        Parameters
+        ----------
+        i:
+            index of first signal to join
+        j:
+            index of second signal to join
+        See Also
+        --------
+        split_node
+        Examples
+        --------
+        """
+        if not (i < self.nsignals and j < self.nsignals):
+            raise ValueError("Both signals must be in the graph")
+        i_name = self._property_array['name'][i]
+        j_name = self._property_array['name'][j]
+        join_generator = (n if isinstance(n, frozenset) else frozenset({n}) for n in (i_name,j_name))
+        joined_signal_name = frozenset.union(*join_generator)
+        self.add_signal(joined_signal_name)
+
+        new_row = np.logical_or(self._amat[i], self._amat[j])
+        new_col = np.logical_or(self._amat[:,i], self._amat[:,j])
+
+        self._amat[self._nsignals - 1] = new_row
+        self._amat[:, self._nsignals - 1] = new_col
+        self._amat[self._nsignals - 1, self._nsignals - 1] = 1
+
+        self._remove_signals_from([i,j])
+    
+    def join_signals(self, i: Node, j: Node):
+        i = self.name2idx(i)
+        j = self.name2idx(j)
+        self._join_signals(i,j)
 
     # === PROPERTIES
 
