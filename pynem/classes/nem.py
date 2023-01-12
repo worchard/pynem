@@ -11,6 +11,17 @@ from pynem.classes import SignalGraph, EffectAttachments
 import anndata as ad
 import numpy as np
 
+class NestedEffectsModel2:
+    """
+    Class uniting the data, graph and learning algorithms to facilitate scoring and learning of Nested Effects Models.
+    """
+    def __init__(self, adata: ad.AnnData = ad.AnnData(), signals_column: str = 'signals', controls: Iterable = {'control'},
+                signals: Set = set(), effects: Set = set(), structure_prior: Union[Iterable[Edge], np.ndarray] = None,
+                attachments_prior: Union[Iterable[Edge], np.ndarray] = None, alpha: float = 0.13, beta: float = 0.05,
+                lambda_reg: float = 0, delta: float = 1, signal_graph: Union[Iterable[Edge], np.ndarray] = None,
+                effect_attachments: Union[Iterable[Edge], np.ndarray] = None, nem = None):
+        pass
+
 class NestedEffectsModel():
     """
     Class uniting the separate elements of a Nested Effects Model in order to facilitate scoring and learning.
