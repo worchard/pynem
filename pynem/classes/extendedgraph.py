@@ -33,6 +33,7 @@ class ExtendedGraph:
             self._property_array['name'] = np.array(list(signals) + list(effects))
             self._property_array['is_signal'] = np.array([True]*self._nsignals + [False]*self._neffects)
 
+            self._join_array = sps.lil_matrix((self._nsignals, self._nsignals), dtype='bool')
             self._amat = np.zeros((self._nsignals, nnodes), dtype='B')
             np.fill_diagonal(self._signal_amat(), 1)
             self.add_edges_from(edges)
@@ -123,13 +124,19 @@ class ExtendedGraph:
         """
         return set(self._signal_amat()[signals].nonzero()[1])
     
+    def _joined_to(self, signal: int) -> np.ndarray:
+        return self._join_array[signal].nonzero()[1].astype('B')
+    
     # === RELATION MANIPULATION METHODS PRIVATE
 
     def _add_edge(self, i: int, j: int):
         if i == j:
             warnings.warn("Self loops are present by default so adding them does nothing!")
             return
-        self._signal_amat()[i, j] = 1
+        i_joined_to = np.append(i, self._joined_to(i))
+        j_joined_to = np.append(j, self._joined_to(j))
+        for i in i_joined_to:
+            self._signal_amat()[i, j_joined_to] = 1
     
     def _add_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
@@ -141,7 +148,10 @@ class ExtendedGraph:
         if i == j:
             warnings.warn("Self loops are present by default and cannot be removed!")
             return
-        self._signal_amat()[i, j] = 0
+        i_joined_to = np.append(i, self._joined_to(i))
+        j_joined_to = np.append(j, self._joined_to(j))
+        for i in i_joined_to:
+            self._signal_amat()[i, j_joined_to] = 0
     
     def _remove_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
@@ -270,6 +280,7 @@ class ExtendedGraph:
     # === NODE MANIPULATION METHODS
 
     def add_signal(self, name = "as_index"):
+        raise NotImplementedError
         #First redo the adjacency matrix
         new_amat = np.zeros((self._amat.shape[0] + 1, self._amat.shape[1] + 1), dtype='B')
         orig_cols = np.append(range(self.nsignals), range(self.nsignals+1, self.nnodes + 1))
@@ -302,6 +313,7 @@ class ExtendedGraph:
         self._neffects += 1
     
     def _remove_signal(self, signal: int):
+        raise NotImplementedError
         if signal not in self.signals_idx():
             raise ValueError("Signal not in graph")
         orig_cols = np.append(range(signal), range(signal+1, self.nnodes)).astype('B')
@@ -310,10 +322,12 @@ class ExtendedGraph:
         self._nsignals -= 1
     
     def remove_signal(self, signal):
+        raise NotImplementedError
         signal = self.name2idx(signal)
         self._remove_signal(signal)
     
     def _remove_signals_from(self, signals: List[int]):
+        raise NotImplementedError
         if not np.all(np.isin(signals, self.signals_idx())):
             raise ValueError("All signals being removed must be in the graph")
         orig_cols = [signal for signal in range(self.nnodes) if signal not in signals]
@@ -322,6 +336,7 @@ class ExtendedGraph:
         self._nsignals -= len(signals)
     
     def remove_signals_from(self, signals: List[int]):
+        raise NotImplementedError
         signals = self.names2idx(np.array(signals))
         self._remove_signals_from(signals)
     
@@ -338,41 +353,55 @@ class ExtendedGraph:
         self._remove_effect(effect)
     
     def _join_signals(self, i: int, j: int):
-        """
-        Join the nodes ``i`` and ``j`` into a single multi-node.
-        Parameters
-        ----------
-        i:
-            index of first signal to join
-        j:
-            index of second signal to join
-        See Also
-        --------
-        split_node
-        Examples
-        --------
-        """
-        if not (i < self.nsignals and j < self.nsignals):
-            raise ValueError("Both signals must be in the graph")
-        i_name = self._property_array['name'][i]
-        j_name = self._property_array['name'][j]
-        join_generator = (n if isinstance(n, frozenset) else frozenset({n}) for n in (i_name,j_name))
-        joined_signal_name = frozenset.union(*join_generator)
-        self.add_signal(joined_signal_name)
-
-        new_row = np.logical_or(self._amat[i], self._amat[j])
-        new_col = np.logical_or(self._amat[:,i], self._amat[:,j])
-
-        self._amat[self._nsignals - 1] = new_row
-        self._amat[:, self._nsignals - 1] = new_col
-        self._amat[self._nsignals - 1, self._nsignals - 1] = 1
-
-        self._remove_signals_from([i,j])
+        to_join = np.append(j, self._joined_to(j))
+        self._join_array[i, to_join] = 1
+        self._join_array[to_join, i] = 1
     
-    def join_signals(self, i: Node, j: Node):
-        i = self.name2idx(i)
-        j = self.name2idx(j)
-        self._join_signals(i,j)
+    def _split_signals(self, i: int, j: int):
+        if not self._join_array[i,j]:
+            return
+        j_joined_to = np.append(j, self._joined_to(j))
+        self._join_array[i, j_joined_to] = 0
+        self._join_array[j_joined_to, i] = 0
+        self._signal_amat()[j_joined_to, i] = 0
+        self._signal_amat()[i, i] = 1
+    
+    # def _join_signals(self, i: int, j: int):
+    #     """
+    #     Join the nodes ``i`` and ``j`` into a single multi-node.
+    #     Parameters
+    #     ----------
+    #     i:
+    #         index of first signal to join
+    #     j:
+    #         index of second signal to join
+    #     See Also
+    #     --------
+    #     split_node
+    #     Examples
+    #     --------
+    #     """
+    #     if not (i < self.nsignals and j < self.nsignals):
+    #         raise ValueError("Both signals must be in the graph")
+    #     i_name = self._property_array['name'][i]
+    #     j_name = self._property_array['name'][j]
+    #     join_generator = (n if isinstance(n, frozenset) else frozenset({n}) for n in (i_name,j_name))
+    #     joined_signal_name = frozenset.union(*join_generator)
+    #     self.add_signal(joined_signal_name)
+
+    #     new_row = np.logical_or(self._amat[i], self._amat[j])
+    #     new_col = np.logical_or(self._amat[:,i], self._amat[:,j])
+
+    #     self._amat[self._nsignals - 1] = new_row
+    #     self._amat[:, self._nsignals - 1] = new_col
+    #     self._amat[self._nsignals - 1, self._nsignals - 1] = 1
+
+    #     self._remove_signals_from([i,j])
+    
+    # def join_signals(self, i: Node, j: Node):
+    #     i = self.name2idx(i)
+    #     j = self.name2idx(j)
+    #     self._join_signals(i,j)
 
     # === PROPERTIES
 
