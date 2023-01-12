@@ -16,9 +16,13 @@ class ExtendedGraph:
     """
     def __init__(self, signals: Iterable[Node] = set(), effects: Iterable[Node] = set(), 
                  edges: Iterable[Edge] = set(), attachments: Iterable[Edge] = set(), 
-                 graph = None):
-        if graph is not None:
-            pass
+                 extended_graph = None):
+        if extended_graph is not None:
+            self._nsignals = extended_graph._nsignals
+            self._neffects = extended_graph._neffects
+            self._property_array = extended_graph.property_array
+            self._amat = extended_graph._amat.copy()
+            self._join_array = extended_graph._join_array.copy()
         else:
             signals = set(signals)
             effects = set(effects)
@@ -45,6 +49,9 @@ class ExtendedGraph:
         if not isinstance(other, ExtendedGraph):
             return False
         return np.array_equal(self._property_array, other._property_array) and np.array_equal(self._amat, other._amat)
+    
+    def copy(self):
+        return ExtendedGraph(extended_graph=self)
     
     # === BASIC METHODS
     
