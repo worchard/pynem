@@ -37,7 +37,7 @@ class ExtendedGraph:
             self._property_array['name'] = np.array(list(signals) + list(effects))
             self._property_array['is_signal'] = np.array([True]*self._nsignals + [False]*self._neffects)
 
-            self._join_array = sps.lil_matrix((self._nsignals, self._nsignals), dtype='bool')
+            self._join_array = np.zeros((self._nsignals, self._nsignals), dtype='bool')
             self._amat = np.zeros((self._nsignals, nnodes), dtype='B')
             np.fill_diagonal(self._signal_amat(), 1)
             self.add_edges_from(edges)
@@ -132,7 +132,7 @@ class ExtendedGraph:
         return set(self._signal_amat()[signals].nonzero()[1])
     
     def _joined_to(self, signal: int) -> np.ndarray:
-        return self._join_array[signal].nonzero()[1].astype('B')
+        return self._join_array[signal].nonzero()[0].astype('B')
     
     # === RELATION MANIPULATION METHODS PRIVATE
 
