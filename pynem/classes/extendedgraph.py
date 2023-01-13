@@ -14,8 +14,9 @@ class ExtendedGraph:
     Base class for graphs over Nested Effects Models, combining both the graph over perturbed 'signal' nodes and downstream
     'effect' nodes
     """
-    def __init__(self, signals: Iterable[Node] = set(), effects: Iterable[Node] = set(), 
+    def __init__(self, signals: List[Node] = list(), effects: List[Node] = list(), 
                  edges: Iterable[Edge] = set(), attachments: Iterable[Edge] = set(), 
+                 signal_amat: np.ndarray = None, attachments_amat: np.ndarray = None, 
                  extended_graph = None):
         if extended_graph is not None:
             self._nsignals = extended_graph._nsignals
@@ -24,22 +25,46 @@ class ExtendedGraph:
             self._amat = extended_graph._amat.copy()
             self._join_array = extended_graph._join_array.copy()
         else:
-            signals = set(signals)
-            effects = set(effects)
-            signals.update(set(chain(*edges)))
-            effects.update(set(chain(*attachments)))
-            self._nsignals = len(signals)
-            self._neffects = len(effects)
-            nnodes = self._nsignals + self._neffects
+            signals = list(signals)
+            effects = list(effects)
+            if signal_amat is None:
+                if edges:
+                    signals = signals + list(set(chain(*edges)).difference(signals))
+                self._nsignals = len(signals)
+            else:
+                self._nsignals = signal_amat.shape[0]
+                if signals and len(signals) != self._nsignals:
+                    raise ValueError("Dimensions of signals list and signal_amat do not match!")
+                
+            if attachments_amat is None:
+                if attachments:
+                    effects = effects + list(set(chain(*attachments)).difference(effects))
+                self._neffects = len(effects)
+            else:
+                self._neffects = attachments_amat.shape[1] - self._nsignals
+                if effects and len(effects) != self._neffects:
+                    raise ValueError("Dimensions of effects list and attachments_amat do not match!")
             
+            nnodes = self._nsignals + self._neffects
+            self._amat = np.zeros((self._nsignals, nnodes), dtype='B')
+            if signal_amat is not None:
+                self._amat[:self._nsignals, :self._nsignals] = signal_amat.copy()
+            np.fill_diagonal(self._signal_amat(), 1)
+            if attachments_amat is not None:
+                self._amat[:self._nsignals, self._nsignals:] = attachments_amat.copy()
+
+            if not signals:
+                signals = list(range(self._nsignals))
+            if not effects:
+                effects = list(range(self._neffects))
+
             #initialise and populate property array
             self._property_array = np.empty(nnodes, dtype={'names':('name', 'is_signal'), 'formats': ('object', 'B')})
-            self._property_array['name'] = np.array(list(signals) + list(effects))
+            self._property_array['name'] = np.array(signals + effects)
             self._property_array['is_signal'] = np.array([True]*self._nsignals + [False]*self._neffects)
 
             self._join_array = np.zeros((self._nsignals, self._nsignals), dtype='bool')
-            self._amat = np.zeros((self._nsignals, nnodes), dtype='B')
-            np.fill_diagonal(self._signal_amat(), 1)
+            
             self.add_edges_from(edges)
             self.attach_effects_from(attachments)
     
