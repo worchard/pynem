@@ -6,21 +6,39 @@ from itertools import chain
 
 from pynem.utils import core_utils
 from pynem.custom_types import *
-from pynem.classes import SignalGraph, EffectAttachments
+from pynem.classes import SignalGraph, EffectAttachments, ExtendedGraph
 
 import anndata as ad
 import numpy as np
 
-class NestedEffectsModel2:
+class NestedEffectsModel2(ExtendedGraph):
     """
     Class uniting the data, graph and learning algorithms to facilitate scoring and learning of Nested Effects Models.
     """
     def __init__(self, adata: ad.AnnData = ad.AnnData(), signals_column: str = 'signals', controls: Iterable = {'control'},
-                signals: Set = set(), effects: Set = set(), structure_prior: Union[Iterable[Edge], np.ndarray] = None,
-                attachments_prior: Union[Iterable[Edge], np.ndarray] = None, alpha: float = 0.13, beta: float = 0.05,
+                signals: Set = set(), effects: Set = set(), structure_prior: np.ndarray = None,
+                attachments_prior: np.ndarray = None, alpha: float = 0.13, beta: float = 0.05,
                 lambda_reg: float = 0, delta: float = 1, signal_graph: Union[Iterable[Edge], np.ndarray] = None,
                 effect_attachments: Union[Iterable[Edge], np.ndarray] = None, nem = None):
-        pass
+        if nem is not None:
+            pass
+        else:
+            #misc and hyper-parameters
+            self._controls = controls
+            self._signals_column = signals_column
+            self._score = None
+            if not (alpha >= 0 and alpha <= 1):
+                    raise ValueError("alpha must be between 0 and 1")
+            if not (beta >= 0 and beta <= 1):
+                    raise ValueError("beta must be between 0 and 1")
+            if lambda_reg < 0:
+                raise ValueError("lambda_reg cannot be negative")
+            if delta < 0:
+                raise ValueError("delta cannot be negative")
+            self._alpha = alpha
+            self._beta = beta
+            self._lambda_reg = lambda_reg
+            self._delta = delta
 
 class NestedEffectsModel():
     """
