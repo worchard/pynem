@@ -38,7 +38,7 @@ class ExtendedGraph:
                 
             if attachments_amat is None:
                 if attachments:
-                    effects = effects + list(set(chain(*attachments)).difference(effects))
+                    effects = effects + list({i[1] for i in attachments}.difference(effects))
                 self._neffects = len(effects)
             else:
                 self._neffects = attachments_amat.shape[1] - self._nsignals
