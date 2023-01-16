@@ -61,7 +61,7 @@ class ExtendedGraph:
             self._property_array['name'] = np.array(signals + effects)
             self._property_array['is_signal'] = np.array([True]*self._nsignals + [False]*self._neffects)
 
-            self._join_array = np.zeros((self._nsignals, self._nsignals), dtype='bool')
+            self._join_array = np.eye(self._nsignals, dtype='bool')
             
             self.add_edges_from(edges)
             self.attach_effects_from(attachments)
@@ -155,10 +155,8 @@ class ExtendedGraph:
         if i == j:
             warnings.warn("Self loops are present by default so adding them does nothing!")
             return
-        i_joined_to = np.append(i, self._joined_to(i))
-        j_joined_to = np.append(j, self._joined_to(j))
-        for i in i_joined_to:
-            self._signal_amat[i, j_joined_to] = 1
+        for i in self._joined_to(i):
+            self._signal_amat[i, self._joined_to(j)] = 1
     
     def _add_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
@@ -170,10 +168,8 @@ class ExtendedGraph:
         if i == j:
             warnings.warn("Self loops are present by default and cannot be removed!")
             return
-        i_joined_to = np.append(i, self._joined_to(i))
-        j_joined_to = np.append(j, self._joined_to(j))
-        for i in i_joined_to:
-            self._signal_amat[i, j_joined_to] = 0
+        for i in self._joined_to(i):
+            self._signal_amat[i, self._joined_to(j)] = 0
     
     def _remove_edges_from(self, edges: Iterable[Edge]):
         if len(edges) == 0:
@@ -376,19 +372,32 @@ class ExtendedGraph:
         self._remove_effect(effect)
     
     def _join_signals(self, i: int, j: int):
-        to_join = np.append(j, self._joined_to(j))
+        to_join = self._joined_to(j)
         self._join_array[i, to_join] = 1
         self._join_array[to_join, i] = 1
+        self._signal_amat[i, to_join] = 1
+        self._signal_amat[to_join, i] = 1
+    
+    def join_signals(self, i: Node, j: Node):
+        i_idx = self.name2idx(i)
+        j_idx = self.name2idx(j)
+        self._join_signals(i_idx, j_idx)
     
     def _split_signals(self, i: int, j: int):
         if not self._join_array[i,j]:
             return
-        j_joined_to = np.append(j, self._joined_to(j))
+        j_joined_to = self._joined_to(j)
         self._join_array[i, j_joined_to] = 0
         self._join_array[j_joined_to, i] = 0
+        self._join_array[i, i] = 1
         self._signal_amat[j_joined_to, i] = 0
         self._signal_amat[i, i] = 1
     
+    def split_signals(self, i: Node, j: Node):
+        i_idx = self.name2idx(i)
+        j_idx = self.name2idx(j)
+        self._split_signals(i_idx, j_idx)
+
     # def _join_signals(self, i: int, j: int):
     #     """
     #     Join the nodes ``i`` and ``j`` into a single multi-node.
