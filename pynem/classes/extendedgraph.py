@@ -151,54 +151,103 @@ class ExtendedGraph:
     
     # === RELATION MANIPULATION METHODS PRIVATE
 
-    def _add_edge(self, i: int, j: int):
+    def _add_edge(self, i: int, j: int, inplace: bool = True):
         if i == j:
             warnings.warn("Self loops are present by default so adding them does nothing!")
             return
-        for i in self._joined_to(i):
-            self._signal_amat[i, self._joined_to(j)] = 1
+        if inplace:
+            for i in self._joined_to(i):
+                self._signal_amat[i, self._joined_to(j)] = 1
+        else:
+            signal_amat = self._signal_amat.copy()
+            for i in self._joined_to(i):
+                signal_amat[i, self._joined_to(j)] = 1
+            return signal_amat
+        
     
-    def _add_edges_from(self, edges: Iterable[Edge]):
+    def _add_edges_from(self, edges: Iterable[Edge], inplace: bool = True):
         if len(edges) == 0:
             return
-        for i, j in edges:
-            self._add_edge(i, j)
+        if inplace:
+            for i, j in edges:
+                self._add_edge(i, j)
+        else:
+            signal_amat = self._signal_amat.copy()
+            for i, j in edges:
+                for i_join in self._joined_to(i):
+                    signal_amat[i_join, self._joined_to(j)] = 1
+            return signal_amat
 
-    def _remove_edge(self, i: int, j: int):
+
+    def _remove_edge(self, i: int, j: int, inplace: bool = True):
         if i == j:
             warnings.warn("Self loops are present by default and cannot be removed!")
             return
-        for i in self._joined_to(i):
-            self._signal_amat[i, self._joined_to(j)] = 0
+        if inplace:
+            for i in self._joined_to(i):
+                self._signal_amat[i, self._joined_to(j)] = 0
+        else:
+            signal_amat = self._signal_amat.copy()
+            for i in self._joined_to(i):
+                signal_amat[i, self._joined_to(j)] = 0
     
-    def _remove_edges_from(self, edges: Iterable[Edge]):
+    def _remove_edges_from(self, edges: Iterable[Edge], inplace: bool = True):
         if len(edges) == 0:
             return
-        for i, j in edges:
-            self._remove_edge(i, j)
+        if inplace:
+            for i, j in edges:
+                self._remove_edge(i, j)
+        else:
+            signal_amat = self._signal_amat.copy()
+            for i, j in edges:
+                for i_join in self._joined_to(i):
+                    signal_amat[i_join, self._joined_to(j)] = 0
+            return signal_amat
 
-    def _attach_effect(self, signal: int, effect: int):
-        self._detach_effect(effect)
-        self._attachment_amat[signal, effect - self._nsignals] = 1
+    def _attach_effect(self, signal: int, effect: int, inplace: bool = True):
+        if inplace:
+            self._detach_effect(effect)
+            self._attachment_amat[signal, effect - self._nsignals] = 1
+        else:
+            attachment_amat = self._detach_effect(effect, inplace = False)
+            attachment_amat[signal, effect - self._nsignals] = 1
+            return attachment_amat
     
-    def _attach_effects_from(self, attachments: Iterable[Edge]):
+    def _attach_effects_from(self, attachments: Iterable[Edge], inplace: bool = True):
         if len(attachments) == 0:
             return
-        for i, j in attachments:
-            self._attach_effect(i, j)
+        if inplace:
+            for signal, effect in attachments:
+                self._attach_effect(signal, effect)
+        else:
+            for signal, effect in attachments:
+                attachment_amat = self._detach_effect(effect, inplace = False)
+                attachment_amat[signal, effect - self._nsignals] = 1
+            return attachment_amat
     
-    def _detach_effect(self, effect: int):
-        self._attachment_amat[:, effect - self._nsignals] = 0
+    def _detach_effect(self, effect: int, inplace: bool = True):
+        if inplace:
+            self._attachment_amat[:, effect - self._nsignals] = 0
+        else:
+            attachment_amat = self._attachment_amat.copy()
+            attachment_amat[:, effect - self._nsignals] = 0
+            return attachment_amat
     
-    def _detach_effects_from(self, effects: Iterable[Node]):
+    def _detach_effects_from(self, effects: Iterable[Node], inplace: bool = True):
         if len(effects) == 0:
             return
-        for effect in effects:
-            self._detach_effect(effect)
+        if inplace:
+            for effect in effects:
+                self._detach_effect(effect)
+        else:
+            attachment_amat = self._attachment_amat.copy()
+            for effect in effects:
+                attachment_amat[:, effect - self._nsignals] = 0
+            return attachment_amat
 
     # === RELATION MANIPULATION METHODS PUBLIC
 
-    def add_edge(self, i: Node, j: Node):
+    def add_edge(self, i: Node, j: Node, inplace: bool = True):
         """
         Add the edge from signal ``i`` to signal ``j`` to the ExtendedGraph
         Parameters
@@ -216,9 +265,9 @@ class ExtendedGraph:
         """
         i = self.name2idx(i)
         j = self.name2idx(j)
-        self._add_edge(i, j)
+        return self._add_edge(i, j, inplace)
     
-    def remove_edge(self, i: Node, j: Node):
+    def remove_edge(self, i: Node, j: Node, inplace: bool = True):
         """
         Remove the edge from signal ``i`` to signal ``j`` to the ExtendedGraph
         Parameters
@@ -236,9 +285,9 @@ class ExtendedGraph:
         """
         i = self.name2idx(i)
         j = self.name2idx(j)
-        self._remove_edge(i, j)
+        return self._remove_edge(i, j, inplace)
     
-    def add_edges_from(self, edges: Iterable[Edge]):
+    def add_edges_from(self, edges: Iterable[Edge], inplace: bool = True):
         """
         Add edges between signals to the graph from the collection ``edges``.
         Parameters
@@ -254,9 +303,9 @@ class ExtendedGraph:
         if len(edges) == 0:
             return
         edges_idx = self.edgeNames2idx(edges)
-        self._add_edges_from(edges_idx)
+        return self._add_edges_from(edges_idx, inplace)
     
-    def remove_edges_from(self, edges: Iterable[Edge]):
+    def remove_edges_from(self, edges: Iterable[Edge], inplace: bool = True):
         """
         Remove edges between signals to the graph from the collection ``edges``.
         Parameters
@@ -272,28 +321,28 @@ class ExtendedGraph:
         if len(edges) == 0:
             return
         edges_idx = self.edgeNames2idx(edges)
-        self._remove_edges_from(edges_idx)
+        return self._remove_edges_from(edges_idx, inplace)
     
-    def attach_effect(self, signal: Node, effect: Node):
+    def attach_effect(self, signal: Node, effect: Node, inplace: bool = True):
         signal = self.name2idx(signal)
         effect = self.name2idx(effect, is_signal=False)
-        self._attach_effect(signal, effect)
+        return self._attach_effect(signal, effect, inplace)
     
-    def detach_effect(self, effect: Node):
+    def detach_effect(self, effect: Node, inplace: bool = True):
         effect = self.name2idx(effect, is_signal=False)
-        self._detach_effect(effect)
+        return self._detach_effect(effect, inplace)
 
-    def attach_effects_from(self, attachments: Iterable[Edge]):
+    def attach_effects_from(self, attachments: Iterable[Edge], inplace: bool = True):
         if len(attachments) == 0:
             return
         attachments_idx = self.edgeNames2idx(attachments, is_signal=False)
-        self._attach_effects_from(attachments_idx)
+        return self._attach_effects_from(attachments_idx, inplace)
     
-    def detach_effects_from(self, effects: Iterable[Node]):
+    def detach_effects_from(self, effects: Iterable[Node], inplace: bool = True):
         if len(effects) == 0:
             return
         effects_idx = self.names2idx(effects, is_signal=False)
-        self._detach_effects_from(effects_idx)
+        self._detach_effects_from(effects_idx, inplace)
 
     # === NODE MANIPULATION METHODS
 
@@ -371,32 +420,51 @@ class ExtendedGraph:
         effect = self.name2idx(effect, is_signal=False)
         self._remove_effect(effect)
     
-    def _join_signals(self, i: int, j: int):
+    def _join_signals(self, i: int, j: int, inplace: bool = True):
         to_join = self._joined_to(j)
-        self._join_array[i, to_join] = 1
-        self._join_array[to_join, i] = 1
-        self._signal_amat[i, to_join] = 1
-        self._signal_amat[to_join, i] = 1
+        if inplace:
+            self._join_array[i, to_join] = 1
+            self._join_array[to_join, i] = 1
+            self._signal_amat[i, to_join] = 1
+            self._signal_amat[to_join, i] = 1
+        else:
+            join_array = self._join_array.copy()
+            signal_amat = self._signal_amat.copy()
+            join_array[i, to_join] = 1
+            join_array[to_join, i] = 1
+            signal_amat[i, to_join] = 1
+            signal_amat[to_join, i] = 1
+            return (signal_amat, join_array)
     
-    def join_signals(self, i: Node, j: Node):
+    def join_signals(self, i: Node, j: Node, inplace: bool = True):
         i_idx = self.name2idx(i)
         j_idx = self.name2idx(j)
-        self._join_signals(i_idx, j_idx)
+        return self._join_signals(i_idx, j_idx, inplace)
     
-    def _split_signals(self, i: int, j: int):
+    def _split_signals(self, i: int, j: int, inplace: bool = True):
         if not self._join_array[i,j]:
             return
         j_joined_to = self._joined_to(j)
-        self._join_array[i, j_joined_to] = 0
-        self._join_array[j_joined_to, i] = 0
-        self._join_array[i, i] = 1
-        self._signal_amat[j_joined_to, i] = 0
-        self._signal_amat[i, i] = 1
+        if inplace:
+            self._join_array[i, j_joined_to] = 0
+            self._join_array[j_joined_to, i] = 0
+            self._join_array[i, i] = 1
+            self._signal_amat[j_joined_to, i] = 0
+            self._signal_amat[i, i] = 1
+        else:
+            join_array = self._join_array.copy()
+            signal_amat = self._signal_amat.copy()
+            join_array[i, j_joined_to] = 0
+            join_array[j_joined_to, i] = 0
+            join_array[i, i] = 1
+            signal_amat[j_joined_to, i] = 0
+            signal_amat[i, i] = 1
+            return (signal_amat, join_array)
     
-    def split_signals(self, i: Node, j: Node):
+    def split_signals(self, i: Node, j: Node, inplace: bool = True):
         i_idx = self.name2idx(i)
         j_idx = self.name2idx(j)
-        self._split_signals(i_idx, j_idx)
+        self._split_signals(i_idx, j_idx, inplace)
 
     # def _join_signals(self, i: int, j: int):
     #     """
