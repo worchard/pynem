@@ -16,12 +16,18 @@ class NestedEffectsModel2(ExtendedGraph):
     Class uniting the data, graph and learning algorithms to facilitate scoring and learning of Nested Effects Models.
     """
     def __init__(self, adata: ad.AnnData = ad.AnnData(), signals_column: str = 'signals', controls: Iterable = {'control'},
-                signals: Set = set(), effects: Set = set(), structure_prior: np.ndarray = None,
+                signals: List = list(), effects: List = list(), structure_prior: np.ndarray = None,
                 attachments_prior: np.ndarray = None, alpha: float = 0.13, beta: float = 0.05,
                 lambda_reg: float = 0, delta: float = 1, signal_graph: Union[Iterable[Edge], np.ndarray] = None,
                 effect_attachments: Union[Iterable[Edge], np.ndarray] = None, nem = None):
         if nem is not None:
-            pass
+            self._controls = nem.controls
+            self._signals_column = nem.signals_column
+            self._score = nem.score
+            self._alpha = nem.alpha
+            self._beta = nem.beta
+            self._lambda_reg = nem.lambda_reg
+            self._delta = nem.delta
         else:
             #misc and hyper-parameters
             self._controls = controls
@@ -39,6 +45,30 @@ class NestedEffectsModel2(ExtendedGraph):
             self._beta = beta
             self._lambda_reg = lambda_reg
             self._delta = delta
+
+            self._adata = adata.copy()
+            if adata:
+                adata_signals = set(adata.obs[signals_column]).difference(set(controls))
+                adata_effects = set(adata.var.index)
+                if not np.all(np.isin(signals, adata_signals)):
+                    raise ValueError(f"Not all signals provided can be found under the {signals_column} in the input data")
+                if not np.all(np.isin(effects, adata_effects)):
+                     raise ValueError(f"Not all effects provided can be found in the input data")
+
+            signals = list(signals)
+            effects = list(effects)
+            
+            if signal_graph:
+                self._signal_graph = signal_graph.copy()
+                self._signals = self._signal_graph.nodes
+            else:
+                self._signal_graph = SignalGraph(nodes = self._signals)
+            if effect_attachments:
+                self._effect_attachments = effect_attachments.copy()
+                self._signals = self._effect_attachments.signals
+                self._effects = self._effect_attachments.effects()
+            else:
+                self._effect_attachments = EffectAttachments.fromeffects(self._effects, signals = self._signals)
 
 class NestedEffectsModel():
     """
