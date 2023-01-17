@@ -11,26 +11,42 @@ from pynem.classes import SignalGraph, EffectAttachments, ExtendedGraph
 import anndata as ad
 import numpy as np
 
-class NestedEffectsModel2(ExtendedGraph):
+class NestedEffectsModel(ExtendedGraph):
     """
     Class uniting the data, graph and learning algorithms to facilitate scoring and learning of Nested Effects Models.
     """
     def __init__(self, adata: ad.AnnData = ad.AnnData(), signals_column: str = 'signals', controls: Iterable = {'control'},
                 signals: List = list(), effects: List = list(), structure_prior: np.ndarray = None,
-                attachments_prior: np.ndarray = None, alpha: float = 0.13, beta: float = 0.05,
+                attachment_prior: np.ndarray = None, alpha: float = 0.13, beta: float = 0.05,
                 lambda_reg: float = 0, delta: float = 1, signal_graph: Union[Iterable[Edge], np.ndarray] = None,
                 effect_attachments: Union[Iterable[Edge], np.ndarray] = None, nem = None):
         if nem is not None:
+            #NEM specific
             self._controls = nem.controls
-            self._signals_column = nem.signals_column
+            self._signals_column = nem._signals_column
             self._score = nem.score
             self._alpha = nem.alpha
             self._beta = nem.beta
             self._lambda_reg = nem.lambda_reg
             self._delta = nem.delta
+            if nem._structure_prior is not None:
+                self._structure_prior = nem._structure_prior.copy()
+            else:
+                self._structure_prior = None
+            if nem._attachment_prior is not None:
+                self._attachment_prior = nem._attachment_prior.copy()
+            else:
+                self._attachment_prior = None
+            #ExtendedGraph
+            self._nsignals = nem._nsignals
+            self._neffects = nem._neffects
+            self._property_array = nem.property_array
+            self._signal_amat = nem._signal_amat.copy()
+            self._attachment_amat = nem._attachment_amat.copy()
+            self._join_array = nem._join_array.copy()
         else:
             #misc and hyper-parameters
-            self._controls = controls
+            self._controls = set(controls)
             self._signals_column = signals_column
             self._score = None
             if not (alpha >= 0 and alpha <= 1):
@@ -47,30 +63,112 @@ class NestedEffectsModel2(ExtendedGraph):
             self._delta = delta
 
             self._adata = adata.copy()
-            if adata:
-                adata_signals = set(adata.obs[signals_column]).difference(set(controls))
-                adata_effects = set(adata.var.index)
-                if not np.all(np.isin(signals, adata_signals)):
-                    raise ValueError(f"Not all signals provided can be found under the {signals_column} in the input data")
-                if not np.all(np.isin(effects, adata_effects)):
-                     raise ValueError(f"Not all effects provided can be found in the input data")
+            self._structure_prior = structure_prior
+            self._attachment_prior = attachment_prior
 
             signals = list(signals)
             effects = list(effects)
-            
-            if signal_graph:
-                self._signal_graph = signal_graph.copy()
-                self._signals = self._signal_graph.nodes
-            else:
-                self._signal_graph = SignalGraph(nodes = self._signals)
-            if effect_attachments:
-                self._effect_attachments = effect_attachments.copy()
-                self._signals = self._effect_attachments.signals
-                self._effects = self._effect_attachments.effects()
-            else:
-                self._effect_attachments = EffectAttachments.fromeffects(self._effects, signals = self._signals)
 
-class NestedEffectsModel():
+            if adata:
+                adata_signals = set(adata.obs[signals_column]).difference(self._controls)
+                adata_effects = set(adata.var.index)
+                if signals:
+                    if not np.all(np.isin(signals, adata_signals)):
+                        raise ValueError(f"Not all signals provided can be found under the {signals_column} in the input data")
+                else:
+                    signals = list(adata_signals)
+                if effects:
+                    if not np.all(np.isin(effects, adata_effects)):
+                        raise ValueError(f"Not all effects provided can be found in the input data")
+                else:
+                    effects = list(adata_effects)
+            
+            edges = set()
+            signal_amat = None
+            if signal_graph is not None:
+                if isinstance(signal_graph[0], tuple):
+                    edges = signal_graph.copy()
+                elif isinstance(signal_graph, np.ndarray):
+                    signal_amat = signal_graph.copy()
+                else:
+                    raise ValueError("signal_graph needs to either be an iterable of edges or an adjacency matrix")
+            
+            attachments = set()
+            attachment_amat = None
+            if effect_attachments is not None:
+                if isinstance(effect_attachments[0], tuple):
+                    attachments = effect_attachments.copy()
+                elif isinstance(effect_attachments, np.ndarray):
+                    attachment_amat = effect_attachments.copy()
+                else:
+                    raise ValueError("effect_attachments needs to either be an iterable of edges or an adjacency matrix")
+
+            super().__init__(signals=signals, effects=effects, signal_amat=signal_amat, attachment_amat=attachment_amat,
+                            edges=edges, attachments=attachments)
+    
+    # === BASIC METHODS
+
+    def copy(self):
+        """
+        Return a copy of the current NestedEffectsModel.
+        """
+        return NestedEffectsModel(nem=self)
+    
+    # === PROPERTIES
+    
+    @property
+    def adata(self) -> ad.AnnData:
+        return self._adata.copy()
+
+    @property
+    def controls(self) -> Set:
+        return self._controls.copy()
+
+    @property
+    def score(self) -> float:
+        return self._score
+    
+    @property
+    def alpha(self) -> float:
+        return self._alpha
+    
+    @alpha.setter
+    def alpha(self, value):
+        if not (value >= 0 and value <= 1):
+            raise ValueError("alpha must be between 0 and 1")
+        self._alpha = value
+    
+    @property
+    def beta(self) -> float:
+        return self._beta
+    
+    @beta.setter
+    def beta(self, value):
+        if not (value >= 0 and value <= 1):
+            raise ValueError("beta must be between 0 and 1")
+        self._beta = value
+    
+    @property
+    def lambda_reg(self) -> float:
+        return self._lambda_reg
+    
+    @lambda_reg.setter
+    def lambda_reg(self, value):
+        if value < 0:
+            raise ValueError("lambda_reg cannot be negative")
+        self._lambda_reg = value
+    
+    @property
+    def delta(self) -> float:
+        return self._delta
+    
+    @delta.setter
+    def delta(self, value):
+        if value < 0:
+            raise ValueError("delta cannot be negative")
+        self._delta = value
+
+class NestedEffectsModel_old():
     """
     Class uniting the separate elements of a Nested Effects Model in order to facilitate scoring and learning.
     """
