@@ -104,9 +104,9 @@ class ExtendedGraph:
         return [*zip(sources, sinks)]
     
     def attachments(self) -> list:
-        edge_array = self._attachments_amat.nonzero()
-        sources = self._property_array['name'][edge_array[0]]
-        sinks = self._property_array['name'][edge_array[1]]
+        attachment_array = self._attachments_amat.nonzero()
+        sources = self._property_array['name'][attachment_array[0]]
+        sinks = self._property_array['name'][attachment_array[1]]
         return [*zip(sources, sinks)]
 
     def _full_amat(self) -> np.ndarray:
