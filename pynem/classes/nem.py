@@ -15,15 +15,15 @@ class NestedEffectsModel(ExtendedGraph):
     """
     Class uniting the data, graph and learning algorithms to facilitate scoring and learning of Nested Effects Models.
     """
-    def __init__(self, adata: ad.AnnData = ad.AnnData(), signals_column: str = 'signals', controls: Iterable = {'control'},
-                signals: List = list(), effects: List = list(), structure_prior: np.ndarray = None,
-                attachment_prior: np.ndarray = None, alpha: float = 0.13, beta: float = 0.05,
-                lambda_reg: float = 0, delta: float = 1, signal_graph: Union[Iterable[Edge], np.ndarray] = None,
+    def __init__(self, adata: ad.AnnData = ad.AnnData(), actions_column: str = 'actions', controls: Iterable = {'control'},
+                actions: List = list(), effects: List = list(), structure_prior: np.ndarray = None,
+                attachments_prior: np.ndarray = None, alpha: float = 0.13, beta: float = 0.05,
+                lambda_reg: float = 0, delta: float = 1, actions_graph: Union[Iterable[Edge], np.ndarray] = None,
                 effect_attachments: Union[Iterable[Edge], np.ndarray] = None, nem = None):
         if nem is not None:
             #NEM specific
             self._controls = nem.controls
-            self._signals_column = nem._signals_column
+            self._actions_column = nem._actions_column
             self._score = nem.score
             self._alpha = nem.alpha
             self._beta = nem.beta
@@ -33,21 +33,21 @@ class NestedEffectsModel(ExtendedGraph):
                 self._structure_prior = nem._structure_prior.copy()
             else:
                 self._structure_prior = None
-            if nem._attachment_prior is not None:
-                self._attachment_prior = nem._attachment_prior.copy()
+            if nem._attachments_prior is not None:
+                self._attachments_prior = nem._attachments_prior.copy()
             else:
-                self._attachment_prior = None
+                self._attachments_prior = None
             #ExtendedGraph
-            self._nsignals = nem._nsignals
+            self._nactions = nem._nactions
             self._neffects = nem._neffects
             self._property_array = nem.property_array
-            self._signal_amat = nem._signal_amat.copy()
-            self._attachment_amat = nem._attachment_amat.copy()
+            self._actions_amat = nem._actions_amat.copy()
+            self._attachments_amat = nem._attachments_amat.copy()
             self._join_array = nem._join_array.copy()
         else:
             #misc and hyper-parameters
             self._controls = set(controls)
-            self._signals_column = signals_column
+            self._actions_column = actions_column
             self._score = None
             if not (alpha >= 0 and alpha <= 1):
                     raise ValueError("alpha must be between 0 and 1")
@@ -64,19 +64,19 @@ class NestedEffectsModel(ExtendedGraph):
 
             self._adata = adata.copy()
             self._structure_prior = structure_prior
-            self._attachment_prior = attachment_prior
+            self._attachments_prior = attachments_prior
 
-            signals = list(signals)
+            actions = list(actions)
             effects = list(effects)
 
             if adata:
-                adata_signals = set(adata.obs[signals_column]).difference(self._controls)
+                adata_actions = set(adata.obs[actions_column]).difference(self._controls)
                 adata_effects = set(adata.var.index)
-                if signals:
-                    if not np.all(np.isin(signals, adata_signals)):
-                        raise ValueError(f"Not all signals provided can be found under the {signals_column} in the input data")
+                if actions:
+                    if not np.all(np.isin(actions, adata_actions)):
+                        raise ValueError(f"Not all actions provided can be found under the {actions_column} in the input data")
                 else:
-                    signals = list(adata_signals)
+                    actions = list(adata_actions)
                 if effects:
                     if not np.all(np.isin(effects, adata_effects)):
                         raise ValueError(f"Not all effects provided can be found in the input data")
@@ -84,26 +84,26 @@ class NestedEffectsModel(ExtendedGraph):
                     effects = list(adata_effects)
             
             edges = set()
-            signal_amat = None
-            if signal_graph is not None:
-                if isinstance(signal_graph[0], tuple):
-                    edges = signal_graph.copy()
-                elif isinstance(signal_graph, np.ndarray):
-                    signal_amat = signal_graph.copy()
+            actions_amat = None
+            if actions_graph is not None:
+                if isinstance(actions_graph[0], tuple):
+                    edges = actions_graph.copy()
+                elif isinstance(actions_graph, np.ndarray):
+                    actions_amat = actions_graph.copy()
                 else:
-                    raise ValueError("signal_graph needs to either be an iterable of edges or an adjacency matrix")
+                    raise ValueError("actions_graph needs to either be an iterable of edges or an adjacency matrix")
             
             attachments = set()
-            attachment_amat = None
+            attachments_amat = None
             if effect_attachments is not None:
                 if isinstance(effect_attachments[0], tuple):
                     attachments = effect_attachments.copy()
                 elif isinstance(effect_attachments, np.ndarray):
-                    attachment_amat = effect_attachments.copy()
+                    attachments_amat = effect_attachments.copy()
                 else:
                     raise ValueError("effect_attachments needs to either be an iterable of edges or an adjacency matrix")
 
-            super().__init__(signals=signals, effects=effects, signal_amat=signal_amat, attachment_amat=attachment_amat,
+            super().__init__(actions=actions, effects=effects, actions_amat=actions_amat, attachments_amat=attachments_amat,
                             edges=edges, attachments=attachments)
     
     # === BASIC METHODS
