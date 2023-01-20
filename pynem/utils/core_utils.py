@@ -1,6 +1,7 @@
 from collections import defaultdict
 import numpy as np
 import anndata as ad
+from pandas import DataFrame
 from pynem.custom_types import *
 
 def defdict2dict(defdict, keys):
@@ -40,20 +41,38 @@ def get_unique_name(name, name_universe):
   return name
 
 def preprocess_adata(adata: ad.AnnData, data_key = 'data', data_type_key = 'binary',
-                     names_array_key = 'names', groups: list = list(), genes: list = list()):
-    raise NotImplementedError
-    gene_names = list(adata.var.index)
-    if not np.all(genes in gene_names):
-        raise ValueError("Not all provided genes could be found in the data")
-    group_names = list(adata.uns[data_key][data_type_key].dtype.names)
-    if not np.all(groups in group_names):
-        raise ValueError("Not all provided groups could be found in the data")
-    names_array = adata.uns[data_key][names_array_key]
-    name_sort_array = np.argsort(np.array(names_array.tolist()).T)
+                     names_array_key = 'names', groups: list = None, genes: list = None) -> DataFrame:
     data_array = np.array(adata.uns[data_key][data_type_key].tolist())
-    name_sorted_data_array = np.empty(data_array.shape)
-    for i in range(len(group_names)):
+    names_array = np.array(adata.uns[data_key][names_array_key].tolist()).T
+    
+    gene_names = list(adata.var.index)
+    if genes is not None:
+        if not np.all(np.isin(genes, gene_names)):
+            raise ValueError("Not all provided genes could be found in the data")
+
+    group_names = np.array(adata.uns[data_key][data_type_key].dtype.names)
+    if groups is not None:
+        if not np.all(np.isin(groups, group_names)):
+            raise ValueError("Not all provided groups could be found in the data")
+        group_mask = np.isin(group_names, groups)
+        data_array = data_array[:,group_mask]
+        names_array = names_array[group_mask]
+        group_names = group_names[group_mask]
+
+    name_sort_array = np.argsort(names_array)
+    gene_names = names_array[0][name_sort_array[0]]
+    
+    out_array = np.zeros(data_array.shape)
+    for i in range(data_array.shape[1]):
         sort_idx = name_sort_array[i]
-        name_sorted_data_array[:,i] = data_array[:,i][sort_idx]
-    if genes:
-        pass
+        out_array[:,i] = data_array[:,i][sort_idx]
+    
+    out_df = DataFrame(out_array, gene_names, group_names)
+
+    if genes is not None:
+        out_df = out_df.loc[genes]
+
+    if groups is not None:
+        out_df = out_df.loc[:,groups]
+    
+    return out_df
