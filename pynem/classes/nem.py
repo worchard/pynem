@@ -15,15 +15,13 @@ class NestedEffectsModel(ExtendedGraph):
     """
     Class uniting the data, graph and learning algorithms to facilitate scoring and learning of Nested Effects Models.
     """
-    def __init__(self, adata: ad.AnnData = ad.AnnData(), actions_column: str = 'actions', controls: Iterable = {'control'},
+    def __init__(self, data: np.ndarray = np.array([]), col_data: list = list(), row_data: list = list(),
                 actions: List = list(), effects: List = list(), structure_prior: np.ndarray = None,
                 attachments_prior: np.ndarray = None, alpha: float = 0.13, beta: float = 0.05,
                 lambda_reg: float = 0, delta: float = 1, actions_graph: Union[Iterable[Edge], np.ndarray] = None,
                 effect_attachments: Union[Iterable[Edge], np.ndarray] = None, nem = None):
         if nem is not None:
             #NEM specific
-            self._controls = nem.controls
-            self._actions_column = nem._actions_column
             self._score = nem.score
             self._alpha = nem.alpha
             self._beta = nem.beta
@@ -46,8 +44,6 @@ class NestedEffectsModel(ExtendedGraph):
             self._join_array = nem._join_array.copy()
         else:
             #misc and hyper-parameters
-            self._controls = set(controls)
-            self._actions_column = actions_column
             self._score = None
             if not (alpha >= 0 and alpha <= 1):
                     raise ValueError("alpha must be between 0 and 1")
@@ -62,46 +58,60 @@ class NestedEffectsModel(ExtendedGraph):
             self._lambda_reg = lambda_reg
             self._delta = delta
 
-            self._adata = adata.copy()
-            self._structure_prior = structure_prior
-            self._attachments_prior = attachments_prior
+            self._data = data.copy()
+            self._col_data = np.array(col_data)
+            self._row_data = np.array(row_data)
 
-            actions = list(actions)
-            effects = list(effects)
+            actions = np.array(actions)
+            effects = np.array(effects)
 
-            if adata:
-                adata_actions = set(adata.obs[actions_column]).difference(self._controls)
-                adata_effects = set(adata.var.index)
-                if actions:
-                    if not np.all(np.isin(actions, adata_actions)):
-                        raise ValueError(f"Not all actions provided can be found under the {actions_column} in the input data")
+            if self._data.size > 0:
+                if self._col_data.size > 0:
+                    if not self._data.shape[1] == self._col_data.size:
+                        raise ValueError("Dimensions of data and col_data do not match!")
+                    if actions.size > 0:
+                        if not np.all(np.isin(actions, self._col_data)):
+                            raise ValueError("Not all provided actions found in col_data!")
+                    else:
+                        _, idx = np.unique(self._col_data, return_index=True)
+                        actions = self._col_data[idx]
                 else:
-                    actions = list(adata_actions)
-                if effects:
-                    if not np.all(np.isin(effects, adata_effects)):
-                        raise ValueError(f"Not all effects provided can be found in the input data")
+                    if actions.size > 0:
+                        if not self._data.shape[1] == actions.size:
+                            raise ValueError("Dimensions of data and actions do not match!")
+                        else:
+                            self._col_data = actions
+                    else:
+                        actions = np.array(range(self._data.shape[1]))
+                        self._col_data = actions
+                if self._row_data.size > 0:
+                    if not self._data.shape[0] == self._row_data.size:
+                        raise ValueError("Dimensions of data and row_data do not match!")
+                    if effects.size > 0:
+                        if not np.all(np.isin(effects, self._row_data)):
+                            raise ValueError("Not all provided effects found in row_data!")
+                    else:
+                        effects = self._row_data
                 else:
-                    effects = list(adata_effects)
-            
-            edges = set()
-            actions_amat = None
-            if actions_graph is not None:
-                if isinstance(actions_graph[0], tuple):
-                    edges = actions_graph.copy()
-                elif isinstance(actions_graph, np.ndarray):
-                    actions_amat = actions_graph.copy()
+                    if effects.size > 0:
+                        if not self._data.shape[0] == effects.size:
+                            raise ValueError("Dimensions of data and effects do not match!")
+                        else:
+                            self._row_data = effects
+                    else:
+                        effects = np.array(range(self._data.shape[0]))
+                        self._row_data = effects
+            raise NotImplementedError
+            if structure_prior is not None:
+                if actions.size > 0:
+                    if structure_prior.shape[0] == actions.size:
+                        self._structure_prior = structure_prior.copy()
                 else:
-                    raise ValueError("actions_graph needs to either be an iterable of edges or an adjacency matrix")
-            
-            attachments = set()
-            attachments_amat = None
-            if effect_attachments is not None:
-                if isinstance(effect_attachments[0], tuple):
-                    attachments = effect_attachments.copy()
-                elif isinstance(effect_attachments, np.ndarray):
-                    attachments_amat = effect_attachments.copy()
-                else:
-                    raise ValueError("effect_attachments needs to either be an iterable of edges or an adjacency matrix")
+                    raise ValueError("Dimenions of structure_prior and actions do not match!")
+
+                self._structure_prior = structure_prior.copy()
+            if attachments_prior is not None:
+                self._attachments_prior = attachments_prior.copy()
 
             super().__init__(actions=actions, effects=effects, actions_amat=actions_amat, attachments_amat=attachments_amat,
                             edges=edges, attachments=attachments)
