@@ -243,7 +243,7 @@ class NestedEffectsModel(ExtendedGraph):
     
     def _can_join_actions(self, i: int, j:int):
         """
-        Checks whether one join the action ``i`` (along with the actions it is joined to) to the action ``j`` 
+        Checks whether one can join the action ``i`` (along with the actions it is joined to) to the action ``j`` 
         (along with the actions it is joined to) and preserve transitivity
         """
         i_parents = self._parents(i).difference({j})
