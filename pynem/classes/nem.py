@@ -101,17 +101,48 @@ class NestedEffectsModel(ExtendedGraph):
                     else:
                         effects = np.array(range(self._data.shape[0]))
                         self._row_data = effects
-            raise NotImplementedError
+
+            self._structure_prior = None
             if structure_prior is not None:
                 if actions.size > 0:
                     if structure_prior.shape[0] == actions.size:
                         self._structure_prior = structure_prior.copy()
+                    else:
+                        raise ValueError("Dimenions of structure_prior and actions do not match!")
                 else:
-                    raise ValueError("Dimenions of structure_prior and actions do not match!")
-
-                self._structure_prior = structure_prior.copy()
+                    self._structure_prior = structure_prior.copy()
+                    actions = np.array(range(self._structure_prior.shape[0]))
+            
+            self._attachments_prior = None
             if attachments_prior is not None:
-                self._attachments_prior = attachments_prior.copy()
+                if effects.size > 0:
+                    if attachments_prior.shape[0] == effects.size:
+                        self._attachments_prior = attachments_prior.copy()
+                    else:
+                        raise ValueError("Dimenions of attachments_prior and actions do not match!")
+                else:
+                    self._attachments_prior = attachments_prior.copy()
+                    effects = np.array(range(self._attachments_prior.shape[0]))
+
+            edges = set()
+            actions_amat = None
+            if actions_graph is not None:
+                if isinstance(actions_graph[0], tuple):
+                    edges = actions_graph.copy()
+                elif isinstance(actions_graph, np.ndarray):
+                    actions_amat = actions_graph.copy()
+                else:
+                    raise ValueError("actions_graph needs to either be an iterable of edges or an adjacency matrix")
+
+            attachments = set()
+            attachments_amat = None
+            if effect_attachments is not None:
+                if isinstance(effect_attachments[0], tuple):
+                    attachments = effect_attachments.copy()
+                elif isinstance(effect_attachments, np.ndarray):
+                    attachments_amat = effect_attachments.copy()
+                else:
+                    raise ValueError("effect_attachments needs to either be an iterable of attachments or an adjacency matrix")
 
             super().__init__(actions=actions, effects=effects, actions_amat=actions_amat, attachments_amat=attachments_amat,
                             edges=edges, attachments=attachments)
@@ -127,12 +158,28 @@ class NestedEffectsModel(ExtendedGraph):
     # === PROPERTIES
     
     @property
-    def adata(self) -> ad.AnnData:
-        return self._adata.copy()
+    def data(self) -> np.ndarray:
+        return self._data.copy()
 
     @property
-    def controls(self) -> Set:
-        return self._controls.copy()
+    def col_data(self) -> np.ndarray:
+        return self._col_data.copy()
+
+    @property
+    def row_data(self) -> np.ndarray:
+        return self._row_data.copy()
+    
+    @property
+    def data_tuple(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return (self.data, self.row_data, self.col_data)
+
+    @property
+    def structure_prior(self) -> Tuple[np.ndarray, np.ndarray]:
+        return (self._structure_prior.copy(), self.actions())
+    
+    @property
+    def attachments_prior(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return (self._attachments_prior.copy(), self.actions(), self.effects())
 
     @property
     def score(self) -> float:
