@@ -117,6 +117,16 @@ class ExtendedGraph:
         node_array = np.r_[action_array, self.effects()]
         return (self._full_amat(), action_array, node_array)
     
+    def _parents(self, action: int) -> Set[Node]:
+        parents = set(self._actions_amat[:,action].nonzero()[0])
+        partners = set(self._join_array[action].nonzero()[0])
+        return parents.difference(partners)
+    
+    def _children(self, action: int) -> Set[Node]:
+        children = set(self._actions_amat[action].nonzero()[0])
+        partners = set(self._join_array[action].nonzero()[0])
+        return children.difference(partners)
+    
     def _parents_of(self, actions: Union[int, List[int]]) -> Set[Node]:
         """
         Return all actions that are parents of the actions in the list ``actions``.
@@ -129,7 +139,7 @@ class ExtendedGraph:
         children_of
         Examples
         """
-        return set(self._actions_amat[:,actions].nonzero()[0])
+        return set.union(*(self._parents(a) for a in actions))
 
     def _children_of(self, actions: List[int]) -> Set[Node]:
         """
@@ -144,7 +154,7 @@ class ExtendedGraph:
         Examples
         --------
         """
-        return set(self._actions_amat[actions].nonzero()[1])
+        return set.union(*(self.children(a) for a in actions))
     
     def _joined_to(self, action: int) -> np.ndarray:
         return self._join_array[action].nonzero()[0].astype('B') #if a lil_matrix the index here needs to be switched back to [1], but otherwise same
