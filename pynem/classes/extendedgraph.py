@@ -421,19 +421,22 @@ class ExtendedGraph:
         self._remove_effect(effect)
     
     def _join_actions(self, i: int, j: int, inplace: bool = True):
-        to_join = self._joined_to(j)
+        i_joined_to = self._joined_to(i)
+        j_joined_to = self._joined_to(j)
         if inplace:
-            self._join_array[i, to_join] = 1
-            self._join_array[to_join, i] = 1
-            self._actions_amat[i, to_join] = 1
-            self._actions_amat[to_join, i] = 1
+            for i in i_joined_to:
+                self._join_array[i, j_joined_to] = 1
+                self._join_array[j_joined_to, i] = 1
+                self._actions_amat[i, j_joined_to] = 1
+                self._actions_amat[j_joined_to, i] = 1
         else:
             join_array = self._join_array.copy()
             actions_amat = self._actions_amat.copy()
-            join_array[i, to_join] = 1
-            join_array[to_join, i] = 1
-            actions_amat[i, to_join] = 1
-            actions_amat[to_join, i] = 1
+            for i in i_joined_to:
+                join_array[i, j_joined_to] = 1
+                join_array[j_joined_to, i] = 1
+                actions_amat[i, j_joined_to] = 1
+                actions_amat[j_joined_to, i] = 1
             return (actions_amat, join_array)
     
     def join_actions(self, i: Node, j: Node, inplace: bool = True):
@@ -441,30 +444,36 @@ class ExtendedGraph:
         j_idx = self.name2idx(j)
         return self._join_actions(i_idx, j_idx, inplace)
     
-    def _split_actions(self, i: int, j: int, inplace: bool = True):
-        if not self._join_array[i,j]:
+    def _splitoff_actions(self, actions: list, inplace: bool = True):
+        """
+        Splits actions in ``actions`` from any joined node they are participating in to produce
+        two joined nodes: one containing actions in ``actions`` as a parent to the joined node
+        containing the remaining actions left in the original joined node.
+        """
+        i = actions[0]
+        i_joined_to = self._joined_to(i)
+        if len(actions) == i_joined_to.size:
             return
-        j_joined_to = self._joined_to(j)
+        if not np.all(np.isin(actions, i_joined_to)):
+            raise ValueError("Not all actions being split are joined")
+        split_from = np.setdiff1d(i_joined_to, actions)
         if inplace:
-            self._join_array[i, j_joined_to] = 0
-            self._join_array[j_joined_to, i] = 0
-            self._join_array[i, i] = 1
-            self._actions_amat[j_joined_to, i] = 0
-            self._actions_amat[i, i] = 1
+            for a in actions:
+                self._join_array[a, split_from] = 0
+                self._join_array[split_from, a] = 0
+                self._actions_amat[split_from, a] = 0
         else:
             join_array = self._join_array.copy()
             actions_amat = self._actions_amat.copy()
-            join_array[i, j_joined_to] = 0
-            join_array[j_joined_to, i] = 0
-            join_array[i, i] = 1
-            actions_amat[j_joined_to, i] = 0
-            actions_amat[i, i] = 1
+            for a in actions:
+                join_array[a, split_from] = 0
+                join_array[split_from, a] = 0
+                actions_amat[split_from, a] = 0
             return (actions_amat, join_array)
     
-    def split_actions(self, i: Node, j: Node, inplace: bool = True):
-        i_idx = self.name2idx(i)
-        j_idx = self.name2idx(j)
-        self._split_actions(i_idx, j_idx, inplace)
+    def splitoff_actions(self, actions: List[Node], inplace: bool = True):
+        actions_idx = self.names2idx(actions)
+        self._splitoff_actions(actions_idx, inplace)
 
     # === PROPERTIES
 
