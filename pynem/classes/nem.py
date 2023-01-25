@@ -225,6 +225,36 @@ class NestedEffectsModel(ExtendedGraph):
             raise ValueError("delta cannot be negative")
         self._delta = value
 
+    # === CORE METHODS
+
+    def _can_add_edge(self, i: int, j: int):
+        """
+        Checks whether one can add the edge i -> j and preserve transitivity
+        """
+        out = self._parents(i).issubset(self._parents(j)) \
+            and self._children(j).issubset(self._children(i))
+        return out
+    
+    def _can_remove_edge(self, i: int, j:int):
+        """
+        Checks whether one can remove the edge i -> j and preserve transitivity
+        """
+        return len(self._children(i).intersection(self._parents(j))) == 0
+    
+    def _can_join_actions(self, i: int, j:int):
+        """
+        Checks whether one join the action ``i`` (along with the actions it is joined to) to the action ``j`` 
+        (along with the actions it is joined to) and preserve transitivity
+        """
+        i_parents = self._parents(i).difference({j})
+        j_parents = self._parents(j)
+        i_children = self._children(i)
+        j_children = self._children(j).difference({i})
+        
+        check = i_parents.issubset(j_parents) and j_children.issubset(i_children)
+        return bool(self._actions_amat[j,i] and check)
+
+
 class NestedEffectsModel_old():
     """
     Class uniting the separate elements of a Nested Effects Model in order to facilitate scoring and learning.
