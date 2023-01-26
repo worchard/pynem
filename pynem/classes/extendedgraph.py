@@ -85,6 +85,15 @@ class ExtendedGraph:
     def actions(self) -> np.ndarray:
         return self._property_array['name'][:self._nactions].copy()
     
+    def action_reps_idx(self) -> set: ## Note that the output type is different for idx vs name - might change
+        temp = np.tril(self._join_array)
+        np.fill_diagonal(temp, 0)
+        return set(range(self._nactions)).difference(temp.nonzero()[1])
+    
+    def action_reps(self) -> np.ndarray:
+        out = np.array(self.action_reps_idx())
+        return self.names2idx(out)
+    
     def effects_idx(self) -> np.ndarray:
         return np.array(range(self._nactions, self.nnodes))
     
@@ -536,7 +545,7 @@ class ExtendedGraph:
         else:
             return np.nonzero(self._property_array['name'][mask] == name)[0][0] + self._nactions
 
-    def names2idx(self, name_array, is_action: bool = True) -> np.ndarray:
+    def names2idx(self, name_array: np.ndarray, is_action: bool = True) -> np.ndarray:
         """
         Convert node names given in a 1D ndarray ``name_array`` to a corresponding array of node indices 
         according to the ``property_array`` of an ExtendedGraph object.
