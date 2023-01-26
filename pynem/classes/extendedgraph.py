@@ -85,10 +85,10 @@ class ExtendedGraph:
     def actions(self) -> np.ndarray:
         return self._property_array['name'][:self._nactions].copy()
     
-    def action_reps_idx(self) -> set: ## Note that the output type is different for idx vs name - might change
+    def action_reps_idx(self) -> np.ndarray:
         temp = np.tril(self._join_array)
         np.fill_diagonal(temp, 0)
-        return set(range(self._nactions)).difference(temp.nonzero()[1])
+        return np.array(set(range(self._nactions)).difference(temp.nonzero()[1]))
     
     def action_reps(self) -> np.ndarray:
         out = np.array(self.action_reps_idx())
