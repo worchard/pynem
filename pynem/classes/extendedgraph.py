@@ -48,7 +48,10 @@ class ExtendedGraph:
                 self._neffects = len(effects)
                 self._attachments_amat = np.zeros((self._nactions, self._neffects), dtype = 'B')
             else:
-                self._neffects = attachments_amat.shape[1] - self._nactions
+                if self._nactions == 0:
+                    self._nactions = attachments_amat.shape[0]
+                    self._actions_amat = np.eye(self._nactions, dtype = 'B')
+                self._neffects = attachments_amat.shape[1]
                 if (effects and len(effects) != self._neffects) or attachments_amat.shape[0] != self._nactions:
                     raise ValueError("Dimensions of the actions and/or effects list do not match the attachments_amat!")
                 self._attachments_amat  = attachments_amat.copy()
