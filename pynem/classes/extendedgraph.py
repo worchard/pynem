@@ -88,11 +88,11 @@ class ExtendedGraph:
     def action_reps_idx(self) -> np.ndarray:
         temp = np.tril(self._join_array)
         np.fill_diagonal(temp, 0)
-        return np.array(set(range(self._nactions)).difference(temp.nonzero()[1]))
+        out = set(range(self._nactions)).difference(temp.nonzero()[1])
+        return np.fromiter(out, 'B', len(out))
     
     def action_reps(self) -> np.ndarray:
-        out = np.array(self.action_reps_idx())
-        return self.names2idx(out)
+        return self.names2idx(self.action_reps_idx())
     
     def effects_idx(self) -> np.ndarray:
         return np.arange(self._nactions, self.nnodes)
