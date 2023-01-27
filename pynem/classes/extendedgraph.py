@@ -31,6 +31,8 @@ class ExtendedGraph:
             if actions_amat is None:
                 if edges:
                     actions = actions + list(set(chain(*edges)).difference(actions))
+                if attachments:
+                    actions = actions + list({i[0] for i in attachments}.difference(actions))
                 self._nactions = len(actions)
                 self._actions_amat = np.zeros((self._nactions, self._nactions), dtype = 'B')
             else:
