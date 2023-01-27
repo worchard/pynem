@@ -80,7 +80,7 @@ class ExtendedGraph:
     # === BASIC METHODS
     
     def actions_idx(self) -> np.ndarray:
-        return np.array(range(self._nactions))
+        return np.arange(self._nactions)
     
     def actions(self) -> np.ndarray:
         return self._property_array['name'][:self._nactions].copy()
@@ -95,7 +95,7 @@ class ExtendedGraph:
         return self.names2idx(out)
     
     def effects_idx(self) -> np.ndarray:
-        return np.array(range(self._nactions, self.nnodes))
+        return np.arange(self._nactions, self.nnodes)
     
     def effects(self) -> np.ndarray:
         return self._property_array['name'][self._nactions:].copy()
