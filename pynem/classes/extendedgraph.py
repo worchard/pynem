@@ -74,7 +74,7 @@ class ExtendedGraph:
         if not isinstance(other, ExtendedGraph):
             return False
         return np.array_equal(self._property_array, other._property_array) and np.array_equal(self._actions_amat, other._actions_amat) \
-            and np.array_equal(self._attachments_amat, other._attachments_amat)
+            and np.array_equal(self._attachments_amat, other._attachments_amat) and np.array_equal(self._join_array, other._join_array)
     
     def copy(self):
         return ExtendedGraph(extended_graph=self)
