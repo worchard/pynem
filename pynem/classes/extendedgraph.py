@@ -97,7 +97,7 @@ class ExtendedGraph:
         return np.fromiter(out, 'B', len(out))
     
     def action_reps(self) -> np.ndarray:
-        return self.names2idx(self.action_reps_idx())
+        return self._property_array['name'][self.action_reps_idx()]
     
     def effects_idx(self) -> np.ndarray:
         return np.arange(self._nactions, self.nnodes)
