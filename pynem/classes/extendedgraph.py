@@ -367,7 +367,7 @@ class ExtendedGraph:
         if len(effects) == 0:
             return
         effects_idx = self.names2idx(effects, is_action=False)
-        self._detach_effects_from(effects_idx, inplace)
+        return self._detach_effects_from(effects_idx, inplace)
 
     # === NODE MANIPULATION METHODS
 
