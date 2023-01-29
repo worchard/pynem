@@ -244,8 +244,9 @@ class ExtendedGraph:
             for action, effect in attachments:
                 self._attach_effect(action, effect)
         else:
+            attachments_amat = self._attachments_amat.copy()
             for action, effect in attachments:
-                attachments_amat = self._detach_effect(effect, inplace = False)
+                attachments_amat[:, effect - self._nactions] = 0
                 attachments_amat[action, effect - self._nactions] = 1
             return attachments_amat
     
