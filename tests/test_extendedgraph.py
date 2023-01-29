@@ -115,3 +115,27 @@ def test_full_amat():
     assert np.array_equal(eg._full_amat(), np.array([[1, 1, 1, 1, 0],
                                                   [0, 1, 0, 0, 1]]))
 
+def test_parents():
+    eg = ExtendedGraph(edges={(0,1), (1,2), (0,2)})
+    assert {0,1} == eg._parents(2)
+    eg._join_actions(1,2)
+    assert {0} == eg._parents(2)
+
+def test_children():
+    eg = ExtendedGraph(edges={(0,1), (1,2), (0,2)})
+    assert {1, 2} == eg._children(0)
+    eg._join_actions(0, 1)
+    assert {2} == eg._children(0)
+
+def test_parents_of():
+    eg = ExtendedGraph(edges={(0,1), (1,2), (0,2), (2,3), (1,3), (0,3)})
+    assert {0, 1 ,2} == eg._parents_of({2,3})
+    eg._join_actions(2,3)
+    assert {0, 1} == eg._parents_of({2,3})
+
+def test_children_of():
+    eg = ExtendedGraph(edges={(0,1), (1,2), (0,2), (2,3), (1,3), (0,3)})
+    assert {1 ,2, 3} == eg._children_of({0,1})
+    eg._join_actions(0,1)
+    assert {2, 3} == eg._children_of({0,1})
+

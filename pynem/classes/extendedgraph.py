@@ -168,7 +168,7 @@ class ExtendedGraph:
         Examples
         --------
         """
-        return set.union(*(self.children(a) for a in actions))
+        return set.union(*(self._children(a) for a in actions))
     
     def _joined_to(self, action: int) -> np.ndarray:
         return self._join_array[action].nonzero()[0].astype('B') #if a lil_matrix the index here needs to be switched back to [1], but otherwise same
