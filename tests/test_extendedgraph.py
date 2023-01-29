@@ -210,3 +210,9 @@ def test_detach_effects_from():
     eg.detach_effects_from([0,1])
     assert np.array_equal(np.array([[0,0,0], [0,0,1]]), eg._attachments_amat)
     assert np.array_equal(eg._attachments_amat, aamat)
+
+def test_remove_effect():
+    eg = ExtendedGraph(attachments_amat=np.array([[1,1,0], [0,0,1]]))
+    eg.remove_effect(2)
+    assert np.array_equal(eg.effects(), [0,1])
+    assert np.array_equal(eg._attachments_amat, [[1,1], [0,0]])
