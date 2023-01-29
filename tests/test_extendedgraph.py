@@ -196,3 +196,17 @@ def test_attach_effects_from():
     eg.attach_effects_from({(0,2), (1,0), (1,1)})
     assert np.array_equal(np.array([[0,0,1], [1,1,0]]), eg._attachments_amat)
     assert np.array_equal(aamat, eg._attachments_amat)
+
+def test_detach_effect():
+    eg = ExtendedGraph(attachments_amat=np.array([[1,1,0], [0,0,1]]))
+    aamat = eg.detach_effect(1, inplace=False)
+    eg.detach_effect(1)
+    assert np.array_equal(np.array([[1,0,0], [0,0,1]]), eg._attachments_amat)
+    assert np.array_equal(eg._attachments_amat, aamat)
+
+def test_detach_effects_from():
+    eg = ExtendedGraph(attachments_amat=np.array([[1,1,0], [0,0,1]]))
+    aamat = eg.detach_effects_from([0,1], inplace=False)
+    eg.detach_effects_from([0,1])
+    assert np.array_equal(np.array([[0,0,0], [0,0,1]]), eg._attachments_amat)
+    assert np.array_equal(eg._attachments_amat, aamat)
