@@ -435,10 +435,10 @@ class ExtendedGraph:
     def _remove_effect(self, effect):
         if effect not in self.effects_idx():
             raise ValueError("Effect not in graph")
+        self._property_array = np.delete(self._property_array, effect, 0)
         effect -= self.nactions
         orig_cols = np.append(range(effect), range(effect+1, self.neffects)).astype('B')
         self._attachments_amat = self._attachments_amat[:, orig_cols]
-        self._property_array = np.delete(self._property_array, effect, 0)
         self._neffects -= 1
     
     def remove_effect(self, effect: Node):
