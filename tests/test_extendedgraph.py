@@ -1,7 +1,6 @@
 from pynem import ExtendedGraph
 import pytest
 import numpy as np
-import scipy.sparse as sps
 
 def test_empty_extended_graph():
     eg = ExtendedGraph()
@@ -233,3 +232,49 @@ def test_join_actions():
     eg.add_edge(0,2)
     assert eg._children(1) == {2}
     assert eg._parents(2) == {0, 1}
+
+def test_splitoff_actions():
+    eg = ExtendedGraph(actions_amat=np.triu((1,1,1,1)))
+    eg.join_actions(0,1)
+    eg.join_actions(1,2)
+    action_reps = eg.action_reps_idx()
+    assert len(action_reps) == 2
+    assert 3 in action_reps
+    aamat, jarr = eg.splitoff_actions([0,2], inplace=False)
+    eg.splitoff_actions([0,2])
+    test_arr = np.ones((4, 4))
+    test_arr[1] = [0,1,0,1]
+    test_arr[3] = [0,0,0,1]
+    assert np.array_equal(aamat, test_arr)
+    assert np.array_equal(eg._actions_amat, test_arr)
+    test_arr = np.eye(4)
+    test_arr[0,2] = 1
+    test_arr[2,0] = 1
+    assert np.array_equal(jarr, test_arr)
+    assert np.array_equal(eg._join_array, test_arr)
+
+def test_splitoff_action():
+    eg = ExtendedGraph(actions_amat=np.triu((1,1,1)))
+    eg.join_actions(0,1)
+    #test split up
+    aamat, jarr = eg.splitoff_action(0, direction='up', inplace=False)
+    eg.splitoff_action(0,direction='up')
+    assert np.array_equal(np.triu((1,1,1)), aamat)
+    assert np.array_equal(np.eye(3), jarr)
+    assert np.array_equal(np.triu((1,1,1)), eg._actions_amat)
+    assert np.array_equal(np.eye(3), eg._join_array)
+    eg._join_actions(0,1)
+    #test split down
+    aamat, jarr = eg.splitoff_action(0, direction='down', inplace=False)
+    eg.splitoff_action(0, direction='down')
+    test_arr = np.array([[1,0,1], [1,1,1], [0,0,1]])
+    assert np.array_equal(aamat, test_arr)
+    assert np.array_equal(eg._actions_amat, test_arr)
+    assert np.array_equal(np.eye(3), jarr)
+    assert np.array_equal(np.eye(3), eg._join_array)
+    #check equivalence between up and down for joined pairs
+    eg = ExtendedGraph(actions_amat=np.triu((1,1,1)))
+    eg.join_actions(0,1)
+    aamat2, jarr2 = eg.splitoff_action(1, direction = 'up', inplace=False)
+    np.array_equal(aamat, aamat2)
+    np.array_equal(jarr, jarr2)
