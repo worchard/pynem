@@ -469,7 +469,46 @@ class ExtendedGraph:
         i_idx = self.name2idx(i)
         j_idx = self.name2idx(j)
         return self._join_actions(i_idx, j_idx, inplace)
-    
+
+    def _splitoff_action(self, action: int, direction: str = 'up', inplace: bool = True):
+        """
+        Splits a single action off from any joint node it is participating in. If ``direction = 'up'``
+        then ``action`` becomes the parent of the resulting joint node from which it was splitoff. If
+        ``direction = 'down'`` then ``action`` instead becomes the child.
+        """
+        if direction not in {'up', 'down'}:
+            raise ValueError("direction must be either 'up' or 'down'")
+        joined_to = self._joined_to(action)
+        if joined_to.size == 1:
+            return
+        split_from = np.setdiff1d(joined_to, action)
+        if inplace:
+            self._join_array[action, split_from] = 0
+            self._join_array[split_from, action] = 0
+            if direction == 'up':
+                self._actions_amat[split_from, action] = 0
+            else:
+                self._actions_amat[action, split_from] = 0
+        else:
+            join_array = self._join_array.copy()
+            actions_amat = self._actions_amat.copy()
+            join_array[action, split_from] = 0
+            join_array[split_from, action] = 0
+            if direction == 'up':
+                actions_amat[split_from, action] = 0
+            else:
+                actions_amat[action, split_from] = 0
+            return (actions_amat, join_array)
+
+    def splitoff_action(self, action: Node, direction: str = 'up', inplace: bool = True):
+        """
+        Splits a single action off from any joint node it is participating in. If ``direction = 'up'``
+        then ``action`` becomes the parent of the resulting joint node from which it was splitoff. If
+        ``direction = 'down'`` then ``action`` instead becomes the child.
+        """
+        action = self.name2idx(action)
+        return self._splitoff_action(action, direction, inplace)
+
     def _splitoff_actions(self, actions: list, inplace: bool = True):
         """
         Splits actions in ``actions`` from any joined node they are participating in to produce
@@ -498,8 +537,13 @@ class ExtendedGraph:
             return (actions_amat, join_array)
     
     def splitoff_actions(self, actions: List[Node], inplace: bool = True):
+        """
+        Splits actions in ``actions`` from any joined node they are participating in to produce
+        two joined nodes: one containing actions in ``actions`` as a parent to the joined node
+        containing the remaining actions left in the original joined node.
+        """
         actions_idx = self.names2idx(actions)
-        self._splitoff_actions(actions_idx, inplace)
+        return self._splitoff_actions(actions_idx, inplace)
 
     # === PROPERTIES
 
