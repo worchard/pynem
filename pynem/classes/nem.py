@@ -269,6 +269,9 @@ class NestedEffectsModel(ExtendedGraph):
         check = i_parents.issubset(j_parents) and j_children.issubset(i_children)
         return bool(self._actions_amat[j,i] and check)
 
+    def learn(self):
+        raise NotImplementedError
+
     def transitive_closure(self):
         raise NotImplementedError
 
