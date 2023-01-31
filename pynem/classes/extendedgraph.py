@@ -214,6 +214,7 @@ class ExtendedGraph:
             actions_amat = self._actions_amat.copy()
             for i in self._joined_to(i):
                 actions_amat[i, self._joined_to(j)] = 0
+            return actions_amat
     
     def _remove_edges_from(self, edges: Iterable[Edge], inplace: bool = True):
         if len(edges) == 0:
