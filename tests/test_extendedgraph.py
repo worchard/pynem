@@ -218,8 +218,18 @@ def test_remove_effect():
     assert np.array_equal(eg._attachments_amat, [[1,1], [0,0]])
 
 def test_join_actions():
-    raise NotImplementedError
     eg = ExtendedGraph(actions=[0,1,2], edges = {(0,1)})
     aamat, jarr = eg.join_actions(0,1, inplace=False)
     eg.join_actions(0,1)
-    
+    test_arr = np.eye(3)
+    test_arr[0,1] = 1
+    test_arr[1,0] = 1
+    assert np.array_equal(test_arr, jarr)
+    assert np.array_equal(test_arr, aamat)
+    assert np.array_equal(test_arr, eg._join_array)
+    assert np.array_equal(test_arr, eg._actions_amat)
+    assert eg._parents(1) == set()
+    assert eg._children(0) == set()
+    eg.add_edge(0,2)
+    assert eg._children(1) == {2}
+    assert eg._parents(2) == {0, 1}
