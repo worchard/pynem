@@ -34,6 +34,9 @@ class NestedEffectsModel(ExtendedGraph):
                 self._attachments_prior = nem._attachments_prior.copy()
             else:
                 self._attachments_prior = None
+            self._data = nem.copy()
+            self._col_data = nem._col_data.copy()
+            self._row_data = nem._row_data.copy()
             #ExtendedGraph
             self._nactions = nem._nactions
             self._neffects = nem._neffects
@@ -272,6 +275,16 @@ class NestedEffectsModel(ExtendedGraph):
     def learn(self):
         raise NotImplementedError
 
+    def _data2summaries(self):
+        if self._nactions == self._col_data.size:
+            self._D1 = (self._data == 1).astype('int64')
+            self._D0 = (self._data == 0).astype('int64')
+            self._DNaN = np.isnan(self._data).astype('int64')
+        else:
+            self._D1 = np.array([np.sum(self._data.T[a == self._col_data] == 1, axis = 0) for a in self.actions()]).T
+            self._D0 = np.array([np.sum(self._data.T[a == self._col_data] == 0, axis = 0) for a in self.actions()]).T
+            self._DNaN = np.array([np.sum(np.isnan(self._data.T[a == self._col_data]), axis = 0) for a in self.actions()]).T
+        
     def transitive_closure(self):
         raise NotImplementedError
 
