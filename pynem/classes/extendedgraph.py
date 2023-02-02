@@ -565,7 +565,7 @@ class ExtendedGraph:
     
     @property
     def actions_amat(self) -> Tuple[np.ndarray, np.ndarray]:
-        return (self._actions_amat.copy(), self.actions())
+        return (self._actions_amat[:, :self._nactions].copy(), self.actions())
     
     @property
     def attachments_amat(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
