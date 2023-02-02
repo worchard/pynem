@@ -18,7 +18,8 @@ class NestedEffectsModel(ExtendedGraph):
                 actions: List = list(), effects: List = list(), structure_prior: np.ndarray = None,
                 attachments_prior: np.ndarray = None, alpha: float = 0.13, beta: float = 0.05,
                 lambda_reg: float = 0, delta: float = 1, actions_graph: Union[Iterable[Edge], np.ndarray] = None,
-                effect_attachments: Union[Iterable[Edge], np.ndarray] = None, nem = None):
+                effect_attachments: Union[Iterable[Edge], np.ndarray] = None, 
+                effects_selection: str = 'regularisation', nem = None):
         if nem is not None:
             #NEM specific
             self._score = nem.score
@@ -37,6 +38,7 @@ class NestedEffectsModel(ExtendedGraph):
             self._data = nem.copy()
             self._col_data = nem._col_data.copy()
             self._row_data = nem._row_data.copy()
+            self._effects_selection = nem._effects_selection
             #ExtendedGraph
             self._nactions = nem._nactions
             self._neffects = nem._neffects
@@ -55,10 +57,13 @@ class NestedEffectsModel(ExtendedGraph):
                 raise ValueError("lambda_reg cannot be negative")
             if delta < 0:
                 raise ValueError("delta cannot be negative")
+            if effects_selection not in {'regularisation', 'iterative'}:
+                raise ValueError("effects_selection must be either 'regularisation' or 'iterative'")
             self._alpha = alpha
             self._beta = beta
             self._lambda_reg = lambda_reg
             self._delta = delta
+            self._effects_selection = effects_selection
 
             self._data = data.copy()
             self._col_data = np.array(col_data)
@@ -242,6 +247,16 @@ class NestedEffectsModel(ExtendedGraph):
         if value < 0:
             raise ValueError("delta cannot be negative")
         self._delta = value
+    
+    @property
+    def effects_selection(self):
+        return self._effects_selection
+
+    @effects_selection.setter
+    def effects_selection(self, value):
+        if value not in {'regularisation', 'iterative'}:
+            raise ValueError("effects_selection must be either 'regularisation' or 'iterative'")
+        self._effects_selection = value
 
     # === CORE METHODS
 
