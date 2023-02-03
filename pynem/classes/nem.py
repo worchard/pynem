@@ -252,12 +252,6 @@ class NestedEffectsModel(ExtendedGraph):
     def effects_selection(self):
         return self._effects_selection
 
-    @effects_selection.setter
-    def effects_selection(self, value):
-        if value not in {'regularisation', 'iterative'}:
-            raise ValueError("effects_selection must be either 'regularisation' or 'iterative'")
-        self._effects_selection = value
-
     # === CORE METHODS
 
     def _can_add_edge(self, i: int, j: int):
@@ -287,7 +281,32 @@ class NestedEffectsModel(ExtendedGraph):
         check = i_parents.issubset(j_parents) and j_children.issubset(i_children)
         return bool(self._actions_amat[j,i] and check)
 
-    def learn(self):
+    def _assign_attachments_prior(self):
+        if self._effects_selection == "regularisation":
+            #Make attachments prior uniform with a 'null' action
+            self._attachments_prior = np.full((self.neffects, self.nactions + 1), 1/self.nactions)
+            self._attachments_prior[:,self.nactions] = self.delta/self.nactions
+            self._attachments_prior = self._attachments_prior/self._attachments_prior.sum()
+        else:
+            #Just a uniform prior
+            self._attachments_prior = np.full((self.neffects, self.nactions), 1/self.nactions)
+
+    def _learn_gwo(self):
+        #Generate priors if necessary
+        if self._attachments_prior is None:
+            self._assign_attachments_prior()
+        if self._structure_prior is None and self._lambda_reg > 0:
+            self._structure_prior = np.eye(self.nactions)
+        #Add null action if regularisation is being applied
+        if self._effects_selection == "regularisation":
+            self._actions_amat = np.c_[self._actions_amat, np.zeros(self.nactions)]
+        #Split data into counts for 1s, 0s and NaNs to facilitate scoring
+        self._data2summaries()
+        raise NotImplementedError
+    
+    def _score_mLL(self, actions_amat: np.ndarray, last_target_action: int = None):
+        if last_target_action is None:
+            pass
         raise NotImplementedError
 
     def _data2summaries(self):
