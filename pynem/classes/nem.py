@@ -304,8 +304,8 @@ class NestedEffectsModel(ExtendedGraph):
         self._data2summaries()
         raise NotImplementedError
     
-    def _score_mLL(self, actions_amat: np.ndarray, last_target_action: int = None):
-        if last_target_action is None:
+    def _score_mLL(self, actions_amat: np.ndarray, last_target_actions: List = None):
+        if last_target_actions is None:
             pass
         raise NotImplementedError
 
