@@ -286,7 +286,7 @@ class NestedEffectsModel(ExtendedGraph):
             #Make attachments prior uniform with a 'null' action
             self._attachments_prior = np.full((self.neffects, self.nactions + 1), 1/self.nactions)
             self._attachments_prior[:,self.nactions] = self.delta/self.nactions
-            self._attachments_prior = self._attachments_prior/self._attachments_prior.sum()
+            self._attachments_prior = self._attachments_prior/self._attachments_prior.sum(axis=1)[:, None]
         else:
             #Just a uniform prior
             self._attachments_prior = np.full((self.neffects, self.nactions), 1/self.nactions)
@@ -301,23 +301,43 @@ class NestedEffectsModel(ExtendedGraph):
         if self._effects_selection == "regularisation":
             self._actions_amat = np.c_[self._actions_amat, np.zeros(self.nactions)]
         #Split data into counts for 1s, 0s and NaNs to facilitate scoring
-        self._data2summaries()
+        D1, D0 = self._data2summaries()
         raise NotImplementedError
     
-    def _score_mLL(self, actions_amat: np.ndarray, last_target_actions: List = None):
+    def _score_mLL(self, actions_amat: np.ndarray,  D1: np.ndarray, D0: np.ndarray, 
+                   last_target_actions: Union[int, List[int]] = None):
         if last_target_actions is None:
-            pass
-        raise NotImplementedError
-
-    def _data2summaries(self):
-        if self._nactions == self._col_data.size:
-            self._D1 = (self._data == 1).astype('int64')
-            self._D0 = (self._data == 0).astype('int64')
-            self._DNaN = np.isnan(self._data).astype('int64')
+            L = self.alpha**np.matmul(D1, 1 - actions_amat) * \
+                (1 - self.alpha)**np.matmul(D0, 1 - actions_amat) * \
+                (1 - self.beta)**np.matmul(D1, actions_amat) * \
+                self.beta**np.matmul(D0, actions_amat)
+            self._LP = L*self._attachments_prior                 #consider logging then using logsumexp trick below
+            self._LP_sums = self._LP.sum(axis=1)
+            self._score = np.sum(np.log(self._LP_sums))
         else:
-            self._D1 = np.array([np.sum(self._data.T[a == self._col_data] == 1, axis = 0) for a in self.actions()]).T
-            self._D0 = np.array([np.sum(self._data.T[a == self._col_data] == 0, axis = 0) for a in self.actions()]).T
-            self._DNaN = np.array([np.sum(np.isnan(self._data.T[a == self._col_data]), axis = 0) for a in self.actions()]).T
+            L = self.alpha**np.matmul(D1, 1 - actions_amat[:,last_target_actions]) * \
+                (1 - self.alpha)**np.matmul(D0, 1 - actions_amat[:, last_target_actions]) * \
+                (1 - self.beta)**np.matmul(D1, actions_amat[:, last_target_actions]) * \
+                self.beta**np.matmul(D0, actions_amat[:, last_target_actions])
+            LP_diff = L*self._attachments_prior[:, last_target_actions] - self._LP[:, last_target_actions] 
+            LP_sums = self._LP_sums + LP_diff
+            return np.sum(np.log(LP_sums))
+
+    def _data2summaries(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if self._nactions == self._col_data.size:
+            D1 = (self._data == 1).astype('int64')
+            D0 = (self._data == 0).astype('int64')
+            DNaN = np.isnan(self._data).astype('int64')
+            #following two lines means that if there is a NaN, it has likelihood = 1, hence doesn't affect score
+            D1 += DNaN
+            D0 += DNaN
+        else:
+            D1 = np.array([np.sum(self._data.T[a == self._col_data] == 1, axis = 0) for a in self.actions()]).T
+            D0 = np.array([np.sum(self._data.T[a == self._col_data] == 0, axis = 0) for a in self.actions()]).T
+            DNaN = np.array([np.sum(np.isnan(self._data.T[a == self._col_data]), axis = 0) for a in self.actions()]).T
+            D1 += DNaN
+            D0 += DNaN
+        return (D1, D0)
         
     def transitive_closure(self):
         raise NotImplementedError
