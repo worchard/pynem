@@ -6,3 +6,4 @@ In time, I may also implement some of the major learning and scoring approaches 
 
 from .classes import *
 from .custom_types import *
+from . import datasets
