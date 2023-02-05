@@ -202,7 +202,11 @@ class NestedEffectsModel(ExtendedGraph):
     
     @property
     def attachments_prior(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        return (self._attachments_prior.copy(), self.actions(), self.effects())
+        if self._attachments_prior.shape[1] == self.nactions + 1:
+            cols = np.append(self.actions(), 'null')
+        else:
+            cols = self.actions()
+        return (self._attachments_prior.copy(), self.effects(), cols)
 
     @property
     def score(self) -> float:
