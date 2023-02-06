@@ -328,14 +328,14 @@ class NestedEffectsModel(ExtendedGraph):
         self._LP_sums = self._LP.sum(axis=1)
         self._score = np.sum(np.log(self._LP_sums))
 
-    def _score_proposal_mLL(self, actions_amat: np.ndarray, targets: Union[int, List[int]]) -> Tuple[np.float, np.ndarray, np.ndarray]:
+    def _score_proposal_mLL(self, actions_amat: np.ndarray, targets: Union[int, List[int]]) -> Dict:
         L = self.alpha**np.matmul(self._D1, 1 - actions_amat[:,targets]) * \
             (1 - self.alpha)**np.matmul(self._D0, 1 - actions_amat[:, targets]) * \
             (1 - self.beta)**np.matmul(self._D1, actions_amat[:, targets]) * \
             self.beta**np.matmul(self._D0, actions_amat[:, targets])
         LP_diff = L*self._attachments_prior[:, targets] - self._LP[:, targets] 
         LP_sums = self._LP_sums + LP_diff
-        return (np.sum(np.log(LP_sums)), LP_sums, LP_diff)
+        return {'score': np.sum(np.log(LP_sums)), 'LP_sums': LP_sums, 'LP_diff': LP_diff, 'targets': targets}
     
     def _update_actions_graph(self, actions_amat: np.ndarray, targets: Union[int, List[int]], 
                               score: np.float, LP_sums: np.ndarray, LP_diff: np.ndarray):
