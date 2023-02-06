@@ -285,30 +285,38 @@ class NestedEffectsModel(ExtendedGraph):
         check = i_parents.issubset(j_parents) and j_children.issubset(i_children)
         return bool(self._actions_amat[j,i] and check)
 
-    def _assign_attachments_prior(self):
-        if self._effects_selection == "regularisation":
-            #Make attachments prior uniform with a 'null' action
-            self._attachments_prior = np.full((self.neffects, self.nactions + 1), 1/self.nactions)
-            self._attachments_prior[:,self.nactions] = self.delta/self.nactions
-            self._attachments_prior = self._attachments_prior/self._attachments_prior.sum(axis=1)[:, None]
-        else:
-            #Just a uniform prior
+    def _assign_priors(self):
+        if self._attachments_prior is None:
             self._attachments_prior = np.full((self.neffects, self.nactions), 1/self.nactions)
+        if self._structure_prior is None:
+            if self._lambda_reg > 0:
+                self._structure_prior = np.eye(self.nactions)
+
+    def _add_null_action(self):
+        if self._attachments_prior is None:
+            ValueError("Provide an attachments_prior first or else run nem._assign_priors")
+        if self._attachments_prior.shape[1] == self.nactions + 1:
+            return
+        self._attachments_prior = np.c_[self._attachments_prior, np.full(self.neffects, 1/self.nactions)]
+        self._attachments_prior[:,self.nactions] = self.delta/self.nactions
+        self._attachments_prior = self._attachments_prior/self._attachments_prior.sum(axis=1)[:, None]
+        self._actions_amat = np.c_[self._actions_amat, np.zeros(self.nactions)]
+            
+    def _initialise_learn(self):
+        #Generate priors if necessary
+        self._assign_priors()
+        #Add null action if regularisation is being applied
+        if self._effects_selection == "regularisation":
+            self._add_null_action()
+        #Split data into counts for 1s, 0s and NaNs to facilitate scoring
+        self._gen_d0_d1()
+        #Score initial model (empty graph by default)
+        self._score_current_mLL()
 
     def _learn_gwo(self):
         if self._data.size == 0:
             raise ValueError("No data provided")
-        #Generate priors if necessary
-        if self._attachments_prior is None:
-            self._assign_attachments_prior()
-        if self._structure_prior is None and self._lambda_reg > 0:
-            self._structure_prior = np.eye(self.nactions)
-        #Add null action if regularisation is being applied
-        if self._effects_selection == "regularisation":
-            self._actions_amat = np.c_[self._actions_amat, np.zeros(self.nactions)]
-        #Split data into counts for 1s, 0s and NaNs to facilitate scoring
-        self._gen_d0_d1()
-        self._score_current_mLL()
+        self._initialise_learn()
         raise NotImplementedError
     
     def _score_current_mLL(self):
@@ -341,7 +349,6 @@ class NestedEffectsModel(ExtendedGraph):
             self._D1 = (self._data == 1).astype('int64')
             self._D0 = (self._data == 0).astype('int64')
             DNaN = np.isnan(self._data).astype('int64')
-            
         else:
             self._D1 = np.array([np.sum(self._data.T[a == self._col_data] == 1, axis = 0) for a in self.actions()]).T
             self._D0 = np.array([np.sum(self._data.T[a == self._col_data] == 0, axis = 0) for a in self.actions()]).T
