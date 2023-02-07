@@ -8,6 +8,8 @@ setuptools.setup(
     author='William Orchard',
     author_email='will.r.orchard@gmail.com',
     packages=setuptools.find_packages(exclude=['tests']),
+    package_data = {'pynem': ['datasets/toy5a10e2r.pkl']},
+    include_package_data=True,
     python_requires='>3.5.0',
     zip_safe=False,
     classifiers=[
