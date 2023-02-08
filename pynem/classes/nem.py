@@ -312,6 +312,8 @@ class NestedEffectsModel(ExtendedGraph):
         self._gen_d0_d1()
         #Score initial model (empty graph by default)
         self._score_current_mLL()
+        #Store initial action equivalence class representatives
+        self._areps = self.action_reps_idx()
 
     def _learn_gwo(self):
         if self._data.size == 0:
@@ -319,6 +321,13 @@ class NestedEffectsModel(ExtendedGraph):
         self._initialise_learn()
         raise NotImplementedError
     
+    # def _get_proposals(self):
+    #     action_reps_amat = self._actions_amat[self._areps][:,self._areps]
+    #     possible_add = np.array((1 - action_reps_amat).nonzero()).T
+    #     can_add = np.zeros(possible_add.shape[0])
+    #     for pair in possible_add:
+    #         can_add[0] = self._can_add_edge(*pair)
+
     def _score_current_mLL(self):
         L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
             (1 - self.alpha)**np.matmul(self._D0, 1 - self._actions_amat) * \
