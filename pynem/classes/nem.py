@@ -321,12 +321,13 @@ class NestedEffectsModel(ExtendedGraph):
         self._initialise_learn()
         raise NotImplementedError
     
-    # def _get_proposals(self):
-    #     action_reps_amat = self._actions_amat[self._areps][:,self._areps]
-    #     possible_add = np.array((1 - action_reps_amat).nonzero()).T
-    #     can_add = np.zeros(possible_add.shape[0])
-    #     for pair in possible_add:
-    #         can_add[0] = self._can_add_edge(*pair)
+    def _get_proposals(self):
+        raise NotImplementedError
+        action_reps_amat = self._actions_amat[self._areps][:,self._areps]
+        possible_add = np.array((1 - action_reps_amat).nonzero()).T
+        can_add = np.zeros(possible_add.shape[0])
+        for i in range(possible_add.shape[0]):
+            can_add[i] = self._can_add_edge(*possible_add[i])
 
     def _score_current_mLL(self):
         L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
