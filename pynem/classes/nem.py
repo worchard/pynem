@@ -328,6 +328,12 @@ class NestedEffectsModel(ExtendedGraph):
         can_add = np.zeros(possible_add.shape[0])
         for i in range(possible_add.shape[0]):
             can_add[i] = self._can_add_edge(*possible_add[i])
+        np.fill_diagonal(action_reps_amat, 0)
+        possible_remove = np.array(action_reps_amat.nonzero()).T
+        can_remove = np.zeros(possible_remove.shape[0])
+        for i in range(possible_remove.shape[0]):
+            can_remove[i] = self._can_remove_edge(*possible_remove[i])
+
 
     def _score_current_mLL(self):
         L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
