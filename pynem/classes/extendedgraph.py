@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Hashable, Set, Union, Tuple, Any, Iterable, Dict, FrozenSet, List
 import warnings
 from itertools import chain
+from os import linesep
 
 from pynem.utils import core_utils
 from pynem.custom_types import *
@@ -79,6 +80,22 @@ class ExtendedGraph:
         return np.array_equal(self._property_array, other._property_array) and np.array_equal(self._actions_amat, other._actions_amat) \
             and np.array_equal(self._attachments_amat, other._attachments_amat) and np.array_equal(self._join_array, other._join_array)
     
+    def __str__(self) -> str:
+        nactions = self._nactions
+        neffects = self._neffects
+        actamat = self._actions_amat.__str__()
+        attamat = self._attachments_amat.__str__()
+        actions = self.actions().__str__()
+        effects = self.effects().__str__()
+        out_string = f"ExtendedGraph object of {nactions} actions and {neffects} effects:" + \
+        linesep + f"actions: {actions}" + linesep + f"effects: {effects}" + \
+        linesep + f"actions adjacency matrix:" + linesep + f"{actamat}" + \
+        linesep + f"attachments adjacency matrix:" + linesep + f"{attamat}"
+        return out_string
+    
+    def __repr__(self) -> str:
+        return self.__str__()
+
     def copy(self):
         return ExtendedGraph(extended_graph=self)
     
