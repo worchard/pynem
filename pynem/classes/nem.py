@@ -322,18 +322,20 @@ class NestedEffectsModel(ExtendedGraph):
         raise NotImplementedError
     
     def _get_proposals(self):
-        raise NotImplementedError
         action_reps_amat = self._actions_amat[self._areps][:,self._areps]
         possible_add = np.array((1 - action_reps_amat).nonzero()).T
         can_add = np.zeros(possible_add.shape[0])
         for i in range(possible_add.shape[0]):
             can_add[i] = self._can_add_edge(*possible_add[i])
+        can_join = np.zeros(possible_add.shape[0])
+        for i in range(possible_add.shape[0]):
+            can_join[i] = self._can_join_actions(*possible_add[i])          ### Should be able to speed this up by not checking all possible adds
         np.fill_diagonal(action_reps_amat, 0)
         possible_remove = np.array(action_reps_amat.nonzero()).T
         can_remove = np.zeros(possible_remove.shape[0])
         for i in range(possible_remove.shape[0]):
             can_remove[i] = self._can_remove_edge(*possible_remove[i])
-
+        raise NotImplementedError
 
     def _score_current_mLL(self):
         L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
