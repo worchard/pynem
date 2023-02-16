@@ -149,7 +149,7 @@ def test_joined_to():
 def test_add_edge():
     eg = ExtendedGraph(edges={(0,1), (0,2)})
     assert {(0,0), (0,1), (1,1), (0,2), (2,2)} == set(eg.edges())
-    aamat = eg.add_edge(1,2, inplace=False)
+    aamat = eg.add_edge(1,2, inplace=False)['actions_amat']
     eg.add_edge(1,2)
     assert eg._actions_amat[1,2]
     assert {(0,0), (0,1), (1,1), (1,2), (0,2), (2,2)} == set(eg.edges())
@@ -168,7 +168,7 @@ def test_remove_edge():
     eg = ExtendedGraph(actions_amat=np.triu((1,1,1)))
     assert eg._actions_amat[1,2]
     assert {(0,0), (0,1), (1,1), (1,2), (0,2), (2,2)} == set(eg.edges())
-    aamat = eg.remove_edge(1,2, inplace=False)
+    aamat = eg.remove_edge(1,2, inplace=False)['actions_amat']
     eg.remove_edge(1,2)
     assert not eg._actions_amat[1,2]
     assert {(0,0), (0,1), (1,1), (0,2), (2,2)} == set(eg.edges())
@@ -218,7 +218,9 @@ def test_remove_effect():
 
 def test_join_actions():
     eg = ExtendedGraph(actions=[0,1,2], edges = {(0,1)})
-    aamat, jarr = eg.join_actions(0,1, inplace=False)
+    dd = eg.join_actions(0,1, inplace=False)
+    aamat = dd['actions_amat']
+    jarr = dd['join_array']
     eg.join_actions(0,1)
     test_arr = np.eye(3)
     test_arr[0,1] = 1
@@ -257,7 +259,9 @@ def test_splitoff_action():
     eg = ExtendedGraph(actions_amat=np.triu((1,1,1)))
     eg.join_actions(0,1)
     #test split up
-    aamat, jarr = eg.splitoff_action(0, direction='up', inplace=False)
+    dd = eg.splitoff_action(0, direction='up', inplace=False)
+    aamat = dd['actions_amat']
+    jarr = dd['join_array']
     eg.splitoff_action(0,direction='up')
     assert np.array_equal(np.triu((1,1,1)), aamat)
     assert np.array_equal(np.eye(3), jarr)
@@ -265,7 +269,9 @@ def test_splitoff_action():
     assert np.array_equal(np.eye(3), eg._join_array)
     eg._join_actions(0,1)
     #test split down
-    aamat, jarr = eg.splitoff_action(0, direction='down', inplace=False)
+    dd = eg.splitoff_action(0, direction='down', inplace=False)
+    aamat = dd['actions_amat']
+    jarr = dd['join_array']
     eg.splitoff_action(0, direction='down')
     test_arr = np.array([[1,0,1], [1,1,1], [0,0,1]])
     assert np.array_equal(aamat, test_arr)
@@ -275,6 +281,8 @@ def test_splitoff_action():
     #check equivalence between up and down for joined pairs
     eg = ExtendedGraph(actions_amat=np.triu((1,1,1)))
     eg.join_actions(0,1)
-    aamat2, jarr2 = eg.splitoff_action(1, direction = 'up', inplace=False)
+    dd = eg.splitoff_action(1, direction = 'up', inplace=False)
+    aamat2 = dd['actions_amat']
+    jarr2 = dd['join_array']
     np.array_equal(aamat, aamat2)
     np.array_equal(jarr, jarr2)
