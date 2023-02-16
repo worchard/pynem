@@ -316,26 +316,38 @@ class NestedEffectsModel(ExtendedGraph):
         self._areps = self.action_reps_idx()
 
     def _learn_gwo(self):
+        raise NotImplementedError
         if self._data.size == 0:
             raise ValueError("No data provided")
         self._initialise_learn()
-        raise NotImplementedError
+        #Get actions_amat over action reps
+        actions_reps_amat = self._actions_amat[self._areps][:,self._areps]
+        #Store possible edge additions for forward search
+        possible_add = np.array((1 - actions_reps_amat).nonzero()).T
+        possible_add = np.c_[possible_add, np.zeros((possible_add.shape[0], 2))].astype('B')
+        self._check_forward_proposals(possible_add)
+        add_to_score = possible_add[possible_add[:,2],0:2]
+        join_to_score = possible_add[possible_add[:,3],0:2]
+        add_join_scores = np.zeros(add_to_score.shape[0] + join_to_score.shape[0])
+        for r in possible_add[possible_add[:,2],0:3]:
+            d = self._add_edge(*r, inplace=False)
+            self._score_proposal_mLL(**d)
     
-    def _get_proposals(self):
+    def _check_forward_proposals(self, possible_add: np.ndarray):
+        raise NotImplementedError
+        for i in range(possible_add.shape[0]):
+            possible_add[i,2] = self._can_add_edge(*self._possible_add[i,0:2])
+        for i in range(possible_add.shape[0]):
+            possible_add[i,3] = self._can_join_actions(*possible_add[i,0:2])          ### Should be able to speed this up by not checking all possible adds
+    
+    def _check_backward_proposals(self):
+        raise NotImplementedError
         action_reps_amat = self._actions_amat[self._areps][:,self._areps]
-        possible_add = np.array((1 - action_reps_amat).nonzero()).T
-        can_add = np.zeros(possible_add.shape[0])
-        for i in range(possible_add.shape[0]):
-            can_add[i] = self._can_add_edge(*possible_add[i])
-        can_join = np.zeros(possible_add.shape[0])
-        for i in range(possible_add.shape[0]):
-            can_join[i] = self._can_join_actions(*possible_add[i])          ### Should be able to speed this up by not checking all possible adds
         np.fill_diagonal(action_reps_amat, 0)
         possible_remove = np.array(action_reps_amat.nonzero()).T
         can_remove = np.zeros(possible_remove.shape[0])
         for i in range(possible_remove.shape[0]):
             can_remove[i] = self._can_remove_edge(*possible_remove[i])
-        raise NotImplementedError
 
     def _score_current_mLL(self):
         L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
@@ -356,7 +368,7 @@ class NestedEffectsModel(ExtendedGraph):
         return {'score': np.sum(np.log(LP_sums)), 'LP_sums': LP_sums, 'LP_diff': LP_diff, 'targets': targets}
     
     def _update_actions_graph(self, actions_amat: np.ndarray, targets: Union[int, List[int]], 
-                              score: np.float, LP_sums: np.ndarray, LP_diff: np.ndarray):
+                              score: float, LP_sums: np.ndarray, LP_diff: np.ndarray):
         self._actions_amat = actions_amat
         self._score = score
         self._LP_sums = LP_sums
