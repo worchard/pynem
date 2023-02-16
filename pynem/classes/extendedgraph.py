@@ -201,9 +201,10 @@ class ExtendedGraph:
                 self._actions_amat[i, self._joined_to(j)] = 1
         else:
             actions_amat = self._actions_amat.copy()
+            j_joined_to = self._joined_to(j)
             for i in self._joined_to(i):
-                actions_amat[i, self._joined_to(j)] = 1
-            return actions_amat
+                actions_amat[i, j_joined_to] = 1
+            return {'actions_amat': actions_amat, 'targets': j_joined_to}
         
     
     def _add_edges_from(self, edges: Iterable[Edge], inplace: bool = True):
@@ -229,9 +230,10 @@ class ExtendedGraph:
                 self._actions_amat[i, self._joined_to(j)] = 0
         else:
             actions_amat = self._actions_amat.copy()
+            j_joined_to = self._joined_to(j)
             for i in self._joined_to(i):
-                actions_amat[i, self._joined_to(j)] = 0
-            return actions_amat
+                actions_amat[i, j_joined_to] = 0
+            return {'actions_amat': actions_amat, 'targets': j_joined_to}
     
     def _remove_edges_from(self, edges: Iterable[Edge], inplace: bool = True):
         if len(edges) == 0:
@@ -480,7 +482,8 @@ class ExtendedGraph:
                 join_array[j_joined_to, i] = 1
                 actions_amat[i, j_joined_to] = 1
                 actions_amat[j_joined_to, i] = 1
-            return (actions_amat, join_array)
+            return {'actions_amat': actions_amat, 'join_array': join_array,
+                    'i_targets': i_joined_to, 'j_targets': j_joined_to}
     
     def join_actions(self, i: Node, j: Node, inplace: bool = True):
         i_idx = self.name2idx(i)
@@ -513,9 +516,11 @@ class ExtendedGraph:
             join_array[split_from, action] = 0
             if direction == 'up':
                 actions_amat[split_from, action] = 0
+                targets = action
             else:
                 actions_amat[action, split_from] = 0
-            return (actions_amat, join_array)
+                targets = split_from
+            return {'actions_amat': actions_amat, 'join_array': join_array, 'targets':targets}
 
     def splitoff_action(self, action: Node, direction: str = 'up', inplace: bool = True):
         """
