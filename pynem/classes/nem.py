@@ -316,7 +316,6 @@ class NestedEffectsModel(ExtendedGraph):
         self._areps = self.action_reps_idx()
 
     def _learn_gwo(self):
-        raise NotImplementedError
         if self._data.size == 0:
             raise ValueError("No data provided")
         self._initialise_learn()
@@ -325,18 +324,40 @@ class NestedEffectsModel(ExtendedGraph):
         #Store possible edge additions for forward search
         possible_add = np.array((1 - actions_reps_amat).nonzero()).T
         possible_add = np.c_[possible_add, np.zeros((possible_add.shape[0], 2))].astype('B')
-        self._check_forward_proposals(possible_add)
-        add_to_score = possible_add[possible_add[:,2],0:2]
-        join_to_score = possible_add[possible_add[:,3],0:2]
-        add_join_scores = np.zeros(add_to_score.shape[0] + join_to_score.shape[0])
-        for r in possible_add[possible_add[:,2],0:3]:
-            d = self._add_edge(*r, inplace=False)
-            self._score_proposal_mLL(**d)
-    
+        while True:
+            self._check_forward_proposals(possible_add)
+            add_to_score = possible_add[possible_add[:,2],0:2]
+            join_to_score = possible_add[possible_add[:,3],0:2]
+            add_join_scores = np.zeros(add_to_score.shape[0] + join_to_score.shape[0])
+            if add_join_scores.size == 0:
+                print("No possible edges to add or actions to join!")
+                break
+            proposal_dict = dict.fromkeys(range(add_join_scores.shape[0]))
+            for i in range(add_to_score.shape[0]):
+                d = self._add_edge(*add_to_score[i], inplace=False)
+                proposal_dict[i] = self._score_proposal_mLL(**d)
+                add_join_scores[i] = proposal_dict[i]['score']
+            for i in range(join_to_score.shape[0]):
+                j = i + add_to_score.shape[0]
+                d = self._join_actions(*join_to_score[i], inplace=False)
+                proposal_dict[j] = self._score_proposal_mLL(actions_amat=d['actions_amat'], targets = d['j_targets'])
+                add_join_scores[j] = proposal_dict[j]['score']
+            max_score = add_join_scores.max(initial=self._score)
+            if not max_score - self._score > 0:
+                print("At local maximum!")
+                break
+            else:
+                update_idx = np.nonzero(add_join_scores == max_score)[0]
+                if update_idx.size > 1:
+                    update_idx = np.random.choice(update_idx, 1)
+                if update_idx > (add_to_score.shape[0] - 1): #This means the accepted proposal is a join
+                    action_rm = join_to_score[update_idx - add_to_score.shape[0]]
+                    rm_mask = ~np.any(possible_add == action_rm, axis = 1)
+                    possible_add = possible_add[rm_mask]
+                self._update_actions_graph(**proposal_dict[update_idx])
     def _check_forward_proposals(self, possible_add: np.ndarray):
-        raise NotImplementedError
         for i in range(possible_add.shape[0]):
-            possible_add[i,2] = self._can_add_edge(*self._possible_add[i,0:2])
+            possible_add[i,2] = self._can_add_edge(*possible_add[i,0:2])
         for i in range(possible_add.shape[0]):
             possible_add[i,3] = self._can_join_actions(*possible_add[i,0:2])          ### Should be able to speed this up by not checking all possible adds
     
