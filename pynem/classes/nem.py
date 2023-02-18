@@ -316,7 +316,7 @@ class NestedEffectsModel(ExtendedGraph):
         #Store initial action equivalence class representatives
         self._areps = self.action_reps_idx()
 
-    def _learn_gwo(self):
+    def _learn_gpo(self):
         if self._data.size == 0:
             raise ValueError("No data provided")
         self._initialise_learn()

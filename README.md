@@ -13,4 +13,4 @@ ExtendedGraphs facilitate the representation and manipulation of the action grap
 ### NestedEffectsModel class
 NestedEffectsModels are a child class of ExtendedGraphs and serves to connect them to perturbation data. NestedEffectsModels enable:
 1. Scoring of given ExtendedGraph structures. 
-2. Learning of ExtendedGraph structures. Currently the only supported method is the Greedy Weak Order (GWO) algorithm.
+2. Learning of ExtendedGraph structures. Currently the only supported method is the Greedy Preorder (GPO) algorithm.
