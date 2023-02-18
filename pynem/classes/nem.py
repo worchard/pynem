@@ -317,7 +317,6 @@ class NestedEffectsModel(ExtendedGraph):
         self._areps = self.action_reps_idx()
 
     def _learn_gwo(self):
-        raise NotImplementedError
         if self._data.size == 0:
             raise ValueError("No data provided")
         self._initialise_learn()
@@ -352,8 +351,9 @@ class NestedEffectsModel(ExtendedGraph):
                 update_idx = np.nonzero(add_join_scores == max_score)[0]
                 if update_idx.size > 1:
                     update_idx = np.random.choice(update_idx, 1)
+                update_idx = update_idx[0]
                 if update_idx > (add_to_score.shape[0] - 1): #This means the accepted proposal is a join
-                    action_rm = join_to_score[update_idx - add_to_score.shape[0]]
+                    action_rm = join_to_score[update_idx - add_to_score.shape[0]][0]
                     rm_mask = ~np.any(possible_add == action_rm, axis = 1)
                     possible_add = possible_add[rm_mask]
                 self._update_actions_graph(**proposal_dict[update_idx])
@@ -381,14 +381,15 @@ class NestedEffectsModel(ExtendedGraph):
         self._LP_sums = self._LP.sum(axis=1)
         self._score = np.sum(np.log(self._LP_sums))
 
-    def _score_proposal_mLL(self, actions_amat: np.ndarray, targets: Union[int, List[int]]) -> Dict:
-        L = self.alpha**np.matmul(self._D1, 1 - actions_amat[:,targets]) * \
-            (1 - self.alpha)**np.matmul(self._D0, 1 - actions_amat[:, targets]) * \
-            (1 - self.beta)**np.matmul(self._D1, actions_amat[:, targets]) * \
-            self.beta**np.matmul(self._D0, actions_amat[:, targets])
+    def _score_proposal_mLL(self, actions_amat: np.ndarray, targets: List[int]) -> Dict:
+        aamat_col = actions_amat[:,targets]
+        L = self.alpha**np.matmul(self._D1, 1 - aamat_col) * \
+            (1 - self.alpha)**np.matmul(self._D0, 1 - aamat_col) * \
+            (1 - self.beta)**np.matmul(self._D1, aamat_col) * \
+            self.beta**np.matmul(self._D0, aamat_col)
         LP_diff = L*self._attachments_prior[:, targets] - self._LP[:, targets] 
-        LP_sums = self._LP_sums + LP_diff
-        return {'score': np.sum(np.log(LP_sums)), 'LP_sums': LP_sums, 'LP_diff': LP_diff, 'targets': targets}
+        LP_sums = self._LP_sums + LP_diff.flat
+        return {'actions_amat': actions_amat, 'score': np.sum(np.log(LP_sums)), 'LP_sums': LP_sums, 'LP_diff': LP_diff, 'targets': targets}
     
     def _update_actions_graph(self, actions_amat: np.ndarray, targets: Union[int, List[int]], 
                               score: float, LP_sums: np.ndarray, LP_diff: np.ndarray):
