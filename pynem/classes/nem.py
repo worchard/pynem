@@ -160,6 +160,7 @@ class NestedEffectsModel(ExtendedGraph):
         """
         Return a copy of the current NestedEffectsModel.
         """
+        raise NotImplementedError
         return NestedEffectsModel(nem=self)
     
     def __str__(self) -> str:
@@ -316,6 +317,7 @@ class NestedEffectsModel(ExtendedGraph):
         self._areps = self.action_reps_idx()
 
     def _learn_gwo(self):
+        raise NotImplementedError
         if self._data.size == 0:
             raise ValueError("No data provided")
         self._initialise_learn()
@@ -326,8 +328,8 @@ class NestedEffectsModel(ExtendedGraph):
         possible_add = np.c_[possible_add, np.zeros((possible_add.shape[0], 2))].astype('B')
         while True:
             self._check_forward_proposals(possible_add)
-            add_to_score = possible_add[possible_add[:,2],0:2]
-            join_to_score = possible_add[possible_add[:,3],0:2]
+            add_to_score = possible_add[possible_add[:,2].astype('bool'),0:2]
+            join_to_score = possible_add[possible_add[:,3].astype('bool'),0:2]
             add_join_scores = np.zeros(add_to_score.shape[0] + join_to_score.shape[0])
             if add_join_scores.size == 0:
                 print("No possible edges to add or actions to join!")
