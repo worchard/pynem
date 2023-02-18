@@ -315,11 +315,8 @@ class NestedEffectsModel(ExtendedGraph):
         self._score_current_mLL()
         #Store initial action equivalence class representatives
         self._areps = self.action_reps_idx()
-
-    def _learn_gpo(self):
-        if self._data.size == 0:
-            raise ValueError("No data provided")
-        self._initialise_learn()
+    
+    def _gpo_forward_search(self):
         #Get actions_amat over action reps
         actions_reps_amat = self._actions_amat[self._areps][:,self._areps]
         #Store possible edge additions for forward search
@@ -357,6 +354,13 @@ class NestedEffectsModel(ExtendedGraph):
                     rm_mask = ~np.any(possible_add == action_rm, axis = 1)
                     possible_add = possible_add[rm_mask]
                 self._update_actions_graph(**proposal_dict[update_idx])
+
+    def _learn_gpo(self):
+        if self._data.size == 0:
+            raise ValueError("No data provided")
+        self._initialise_learn()
+        self._gpo_forward_search()
+
     def _check_forward_proposals(self, possible_add: np.ndarray):
         for i in range(possible_add.shape[0]):
             possible_add[i,2] = self._can_add_edge(*possible_add[i,0:2])
