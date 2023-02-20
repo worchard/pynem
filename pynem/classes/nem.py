@@ -316,6 +316,18 @@ class NestedEffectsModel(ExtendedGraph):
         #Store initial action equivalence class representatives
         self._areps = self.action_reps_idx()
     
+    def _phi_distr(self, actions_amat: np.ndarray, a=1, b=0.1):
+        d = np.abs(actions_amat - self._structure_prior)
+        pPhi = a/(2*b)*(1 + d/b)**(-a-1)
+        return np.sum(np.log(pPhi))
+    
+    def _incorporate_structure_prior(self, actions_amat: np.ndarray):
+        if self._lambda_reg != 0:
+            return -self._lambda_reg*np.sum(np.abs(actions_amat - self._structure_prior)) + \
+                np.log(self._lambda_reg*0.5)*2**self.nactions
+        else:
+            return self._phi_distr(actions_amat)
+
     def _gpo_forward_search(self):
         #Get actions_amat over action reps
         actions_reps_amat = self._actions_amat[self._areps][:,self._areps]
@@ -384,6 +396,8 @@ class NestedEffectsModel(ExtendedGraph):
         self._LP = L*self._attachments_prior                 #consider logging then using logsumexp trick below
         self._LP_sums = self._LP.sum(axis=1)
         self._score = np.sum(np.log(self._LP_sums))
+        if self._structure_prior is not None:
+            self._score += self._incorporate_structure_prior(self._actions_amat[:self.nactions, :self.nactions])
 
     def _score_proposal_mLL(self, actions_amat: np.ndarray, targets: List[int]) -> Dict:
         aamat_col = actions_amat[:,targets]
@@ -393,7 +407,10 @@ class NestedEffectsModel(ExtendedGraph):
             self.beta**np.matmul(self._D0, aamat_col)
         LP_diff = L*self._attachments_prior[:, targets] - self._LP[:, targets] 
         LP_sums = self._LP_sums + LP_diff.flat
-        return {'actions_amat': actions_amat, 'score': np.sum(np.log(LP_sums)), 'LP_sums': LP_sums, 'LP_diff': LP_diff, 'targets': targets}
+        score = np.sum(np.log(LP_sums))
+        if self._structure_prior is not None:
+            score += self._incorporate_structure_prior(actions_amat[:self.nactions, :self.nactions])
+        return {'actions_amat': actions_amat, 'score': score, 'LP_sums': LP_sums, 'LP_diff': LP_diff, 'targets': targets}
     
     def _update_actions_graph(self, actions_amat: np.ndarray, targets: Union[int, List[int]], 
                               score: float, LP_sums: np.ndarray, LP_diff: np.ndarray):
