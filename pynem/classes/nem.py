@@ -334,8 +334,9 @@ class NestedEffectsModel(ExtendedGraph):
         #Store possible edge additions for forward search
         possible_add = np.array((1 - actions_reps_amat).nonzero()).T
         possible_add = np.c_[possible_add, np.zeros((possible_add.shape[0], 2))].astype('B')
+        last_change = None
         while True:
-            self._check_forward_proposals(possible_add)
+            self._check_forward_proposals(possible_add, last_change)
             add_to_score = possible_add[possible_add[:,2].astype('bool'),0:2]
             join_to_score = possible_add[possible_add[:,3].astype('bool'),0:2]
             add_join_scores = np.zeros(add_to_score.shape[0] + join_to_score.shape[0])
@@ -361,6 +362,7 @@ class NestedEffectsModel(ExtendedGraph):
                 if update_idx.size > 1:
                     update_idx = np.random.choice(update_idx, 1)
                 update_idx = update_idx[0]
+                last_change = possible_add[update_idx,0:2]
                 if update_idx > (add_to_score.shape[0] - 1): #This means the accepted proposal is a join
                     action_rm = join_to_score[update_idx - add_to_score.shape[0]][0]
                     rm_mask = ~np.any(possible_add == action_rm, axis = 1)
@@ -375,11 +377,15 @@ class NestedEffectsModel(ExtendedGraph):
         self._initialise_learn()
         self._gpo_forward_search()
 
-    def _check_forward_proposals(self, possible_add: np.ndarray):
-        for i in range(possible_add.shape[0]):
+    def _check_forward_proposals(self, possible_add: np.ndarray, last_change: np.ndarray = None):
+        if last_change is not None:
+            idx = np.nonzero(np.isin(possible_add, last_change))[0]
+        else:
+            idx = range(possible_add.shape[0])
+        for i in idx:
             possible_add[i,2] = self._can_add_edge(*possible_add[i,0:2])
-        for i in range(possible_add.shape[0]):
-            possible_add[i,3] = self._can_join_actions(*possible_add[i,0:2])          ### Should be able to speed this up by not checking all possible adds
+        for i in idx:
+            possible_add[i,3] = self._can_join_actions(*possible_add[i,0:2])
     
     def _check_backward_proposals(self):
         raise NotImplementedError
