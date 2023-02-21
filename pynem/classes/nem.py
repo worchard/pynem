@@ -365,6 +365,8 @@ class NestedEffectsModel(ExtendedGraph):
                     action_rm = join_to_score[update_idx - add_to_score.shape[0]][0]
                     rm_mask = ~np.any(possible_add == action_rm, axis = 1)
                     possible_add = possible_add[rm_mask]
+                else:
+                    possible_add = np.delete(possible_add, update_idx, 0)
                 self._update_actions_graph(**proposal_dict[update_idx])
 
     def _learn_gpo(self):
