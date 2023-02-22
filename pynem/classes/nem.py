@@ -332,44 +332,49 @@ class NestedEffectsModel(ExtendedGraph):
         #Get actions_amat over action reps
         actions_reps_amat = self._actions_amat[self._areps][:,self._areps]
         #Store possible edge additions for forward search
-        possible_add = np.array((1 - actions_reps_amat).nonzero()).T
-        possible_add = np.c_[possible_add, np.zeros((possible_add.shape[0], 2))].astype('B')
+        nonzeros = np.array((1 - actions_reps_amat).nonzero()).T
+        possible_add = np.zeros((nonzeros.shape[0], 5)).astype('int')
+        possible_add[:,0] = np.arange(possible_add.shape[0])
+        possible_add[:,1:3] = nonzeros
+        current_score = self.score
+        current_proposal = None
         last_change = None
         while True:
             self._check_forward_proposals(possible_add, last_change)
-            add_to_score = possible_add[possible_add[:,2].astype('bool'),0:2]
-            join_to_score = possible_add[possible_add[:,3].astype('bool'),0:2]
-            add_join_scores = np.zeros(add_to_score.shape[0] + join_to_score.shape[0])
-            if add_join_scores.size == 0:
+            add_to_score = possible_add[possible_add[:,3].astype('bool'),0:3]
+            join_to_score = possible_add[possible_add[:,4].astype('bool'),0:3]
+            if add_to_score.shape[0] + join_to_score.shape[0] == 0:
                 print("No possible edges to add or actions to join!")
                 break
-            proposal_dict = dict.fromkeys(range(add_join_scores.shape[0]))
             for i in range(add_to_score.shape[0]):
-                d = self._add_edge(*add_to_score[i], inplace=False)
-                proposal_dict[i] = self._score_proposal_mLL(**d)
-                add_join_scores[i] = proposal_dict[i]['score']
+                d = self._add_edge(*add_to_score[i,1:3], inplace=False)
+                proposal = self._score_proposal_mLL(**d)
+                if proposal['score'] > current_score:
+                    current_score = proposal['score']
+                    current_proposal = proposal
+                    update_idx = add_to_score[i,0]
+                    change_type = "add"
             for i in range(join_to_score.shape[0]):
-                j = i + add_to_score.shape[0]
-                d = self._join_actions(*join_to_score[i], inplace=False)
-                proposal_dict[j] = self._score_proposal_mLL(actions_amat=d['actions_amat'], targets = d['j_targets'])
-                add_join_scores[j] = proposal_dict[j]['score']
-            max_score = add_join_scores.max(initial=self._score)
-            if not max_score - self._score > 0:
+                d = self._join_actions(*join_to_score[i,1:3], inplace=False)
+                proposal = self._score_proposal_mLL(actions_amat=d['actions_amat'], targets = d['j_targets'])
+                if proposal['score'] > current_score:
+                    current_score = proposal['score']
+                    current_proposal = proposal
+                    update_idx = join_to_score[i,0]
+                    change_type = "join"
+            if current_proposal is None:
                 print("At local maximum!")
                 break
             else:
-                update_idx = np.nonzero(add_join_scores == max_score)[0]
-                if update_idx.size > 1:
-                    update_idx = np.random.choice(update_idx, 1)
-                update_idx = update_idx[0]
-                last_change = possible_add[update_idx,0:2]
-                if update_idx > (add_to_score.shape[0] - 1): #This means the accepted proposal is a join
-                    action_rm = join_to_score[update_idx - add_to_score.shape[0]][0]
-                    rm_mask = ~np.any(possible_add == action_rm, axis = 1)
-                    possible_add = possible_add[rm_mask]
-                else:
+                last_change = possible_add[update_idx,1:3]
+                if change_type == "add":
                     possible_add = np.delete(possible_add, update_idx, 0)
-                self._update_actions_graph(**proposal_dict[update_idx])
+                else:
+                    action_rm = possible_add[update_idx][0]
+                    rm_mask = ~np.any(possible_add == action_rm, axis = 1)
+                    possible_add = possible_add[rm_mask]                    
+                self._update_actions_graph(**current_proposal)
+                current_proposal = None
 
     def _learn_gpo(self):
         if self._data.size == 0:
@@ -379,13 +384,13 @@ class NestedEffectsModel(ExtendedGraph):
 
     def _check_forward_proposals(self, possible_add: np.ndarray, last_change: np.ndarray = None):
         if last_change is not None:
-            idx = np.nonzero(np.isin(possible_add, last_change))[0]
+            idx = np.nonzero(np.isin(possible_add[:,1:3], last_change))[0]
         else:
             idx = range(possible_add.shape[0])
         for i in idx:
-            possible_add[i,2] = self._can_add_edge(*possible_add[i,0:2])
+            possible_add[i,3] = self._can_add_edge(*possible_add[i,1:3])
         for i in idx:
-            possible_add[i,3] = self._can_join_actions(*possible_add[i,0:2])
+            possible_add[i,4] = self._can_join_actions(*possible_add[i,1:3])
     
     def _check_backward_proposals(self):
         raise NotImplementedError
