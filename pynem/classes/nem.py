@@ -401,6 +401,14 @@ class NestedEffectsModel(ExtendedGraph):
         for i in range(possible_remove.shape[0]):
             can_remove[i] = self._can_remove_edge(*possible_remove[i])
 
+    def _score_current_mLL_stable(self):
+        raise NotImplementedError
+        LL = np.log(self.alpha)*np.matmul(self._D1, 1 - self._actions_amat) + \
+            np.log(1 - self.alpha)*np.matmul(self._D0, 1 - self._actions_amat) + \
+            np.log(1 - self.beta)*np.matmul(self._D1, self._actions_amat) + \
+            np.log(self.beta)*np.matmul(self._D0, self._actions_amat)
+        self._LLP = LL+np.log(self._attachments_prior)
+
     def _score_current_mLL(self):
         L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
             (1 - self.alpha)**np.matmul(self._D0, 1 - self._actions_amat) * \
