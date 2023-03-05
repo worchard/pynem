@@ -9,6 +9,7 @@ from pynem.custom_types import *
 from pynem.classes import ExtendedGraph
 
 import numpy as np
+from scipy.special import logsumexp
 
 class NestedEffectsModel(ExtendedGraph):
     """
@@ -402,12 +403,15 @@ class NestedEffectsModel(ExtendedGraph):
             can_remove[i] = self._can_remove_edge(*possible_remove[i])
 
     def _score_current_mLL_stable(self):
-        raise NotImplementedError
         LL = np.log(self.alpha)*np.matmul(self._D1, 1 - self._actions_amat) + \
             np.log(1 - self.alpha)*np.matmul(self._D0, 1 - self._actions_amat) + \
             np.log(1 - self.beta)*np.matmul(self._D1, self._actions_amat) + \
             np.log(self.beta)*np.matmul(self._D0, self._actions_amat)
         self._LLP = LL+np.log(self._attachments_prior)
+        self._LLP_sums = logsumexp(self._LLP,axis=1)
+        self._score2 = np.sum(self._LLP_sums)
+        if self._structure_prior is not None:
+            self._score2 += self._incorporate_structure_prior(self._actions_amat[:self.nactions, :self.nactions])
 
     def _score_current_mLL(self):
         L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
