@@ -402,18 +402,18 @@ class NestedEffectsModel(ExtendedGraph):
         for i in range(possible_remove.shape[0]):
             can_remove[i] = self._can_remove_edge(*possible_remove[i])
 
-    def _score_current_mLL_stable(self):
+    def _score_current_mLL(self):
         LL = np.log(self.alpha)*np.matmul(self._D1, 1 - self._actions_amat) + \
             np.log(1 - self.alpha)*np.matmul(self._D0, 1 - self._actions_amat) + \
             np.log(1 - self.beta)*np.matmul(self._D1, self._actions_amat) + \
             np.log(self.beta)*np.matmul(self._D0, self._actions_amat)
         self._LLP = LL+np.log(self._attachments_prior)
         self._LLP_sums = logsumexp(self._LLP,axis=1)
-        self._score2 = np.sum(self._LLP_sums)
+        self._score = np.sum(self._LLP_sums)
         if self._structure_prior is not None:
-            self._score2 += self._incorporate_structure_prior(self._actions_amat[:self.nactions, :self.nactions])
+            self._score += self._incorporate_structure_prior(self._actions_amat[:self.nactions, :self.nactions])
 
-    def _score_proposal_mLL_stable(self, actions_amat: np.ndarray, targets: List[int]) -> Dict:
+    def _score_proposal_mLL(self, actions_amat: np.ndarray, targets: List[int]) -> Dict:
         aamat_col = actions_amat[:,targets]
         LL = np.log(self.alpha)*np.matmul(self._D1, 1 - aamat_col) + \
             np.log(1 - self.alpha)*np.matmul(self._D0, 1 - aamat_col) + \
@@ -424,46 +424,15 @@ class NestedEffectsModel(ExtendedGraph):
         new_LLP = LL + np.log(self._attachments_prior[:, targets])
         LLP_sums = logsumexp(np.c_[self._LLP_sums[:,None], new_LLP, self._LLP[:, targets]], 
                              b = b, axis = 1)
-        score2 = np.sum(LLP_sums)
-        if self._structure_prior is not None:
-            score2 += self._incorporate_structure_prior(actions_amat[:self.nactions, :self.nactions])
-        return {'actions_amat': actions_amat, 'score2': score2, 'new_LLP': new_LLP, 'LLP_sums': LLP_sums, 'targets': targets}
-
-    def _score_current_mLL(self):
-        L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
-            (1 - self.alpha)**np.matmul(self._D0, 1 - self._actions_amat) * \
-            (1 - self.beta)**np.matmul(self._D1, self._actions_amat) * \
-            self.beta**np.matmul(self._D0, self._actions_amat)
-        self._LP = L*self._attachments_prior                 #consider logging then using logsumexp trick below
-        self._LP_sums = self._LP.sum(axis=1)
-        self._score = np.sum(np.log(self._LP_sums))
-        if self._structure_prior is not None:
-            self._score += self._incorporate_structure_prior(self._actions_amat[:self.nactions, :self.nactions])
-
-    def _score_proposal_mLL(self, actions_amat: np.ndarray, targets: List[int]) -> Dict:
-        aamat_col = actions_amat[:,targets]
-        L = self.alpha**np.matmul(self._D1, 1 - aamat_col) * \
-            (1 - self.alpha)**np.matmul(self._D0, 1 - aamat_col) * \
-            (1 - self.beta)**np.matmul(self._D1, aamat_col) * \
-            self.beta**np.matmul(self._D0, aamat_col)
-        LP_diff = L*self._attachments_prior[:, targets] - self._LP[:, targets] 
-        LP_sums = self._LP_sums + LP_diff.flat
-        score = np.sum(np.log(LP_sums))
+        score = np.sum(LLP_sums)
         if self._structure_prior is not None:
             score += self._incorporate_structure_prior(actions_amat[:self.nactions, :self.nactions])
-        return {'actions_amat': actions_amat, 'score': score, 'LP_sums': LP_sums, 'LP_diff': LP_diff, 'targets': targets}
-    
+        return {'actions_amat': actions_amat, 'score': score, 'new_LLP': new_LLP, 'LLP_sums': LLP_sums, 'targets': targets}
+
     def _update_actions_graph(self, actions_amat: np.ndarray, targets: Union[int, List[int]], 
-                              score: float, LP_sums: np.ndarray, LP_diff: np.ndarray):
+                              score: float, LLP_sums: np.ndarray, new_LLP: np.ndarray):
         self._actions_amat = actions_amat
         self._score = score
-        self._LP_sums = LP_sums
-        self._LP[:, targets] += LP_diff
-
-    def _update_actions_graph_stable(self, actions_amat: np.ndarray, targets: Union[int, List[int]], 
-                              score2: float, LLP_sums: np.ndarray, new_LLP: np.ndarray):
-        self._actions_amat = actions_amat
-        self._score2 = score2
         self._LLP_sums = LLP_sums
         self._LLP[:, targets] = new_LLP
 
