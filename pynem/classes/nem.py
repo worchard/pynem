@@ -421,12 +421,13 @@ class NestedEffectsModel(ExtendedGraph):
             np.log(self.beta)*np.matmul(self._D0, aamat_col)
         b = np.ones((self._LLP_sums.shape[0], 3))
         b[:,2] = -b[:,2]
-        LLP_sums = logsumexp(np.c_[self._LLP_sums[:,None], LL + np.log(self._attachments_prior[:, targets]), self._LLP[:, targets]], 
+        new_LLP = LL + np.log(self._attachments_prior[:, targets])
+        LLP_sums = logsumexp(np.c_[self._LLP_sums[:,None], new_LLP, self._LLP[:, targets]], 
                              b = b, axis = 1)
         score2 = np.sum(LLP_sums)
         if self._structure_prior is not None:
             score2 += self._incorporate_structure_prior(actions_amat[:self.nactions, :self.nactions])
-        return {'actions_amat': actions_amat, 'score2': score2, 'LP_sums': LLP_sums, 'targets': targets}
+        return {'actions_amat': actions_amat, 'score2': score2, 'new_LLP': new_LLP, 'LLP_sums': LLP_sums, 'targets': targets}
 
     def _score_current_mLL(self):
         L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
@@ -458,6 +459,13 @@ class NestedEffectsModel(ExtendedGraph):
         self._score = score
         self._LP_sums = LP_sums
         self._LP[:, targets] += LP_diff
+
+    def _update_actions_graph_stable(self, actions_amat: np.ndarray, targets: Union[int, List[int]], 
+                              score2: float, LLP_sums: np.ndarray, new_LLP: np.ndarray):
+        self._actions_amat = actions_amat
+        self._score2 = score2
+        self._LLP_sums = LLP_sums
+        self._LLP[:, targets] = new_LLP
 
     def _gen_d0_d1(self):
         if self._nactions == self._col_data.size:
