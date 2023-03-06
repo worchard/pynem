@@ -414,18 +414,19 @@ class NestedEffectsModel(ExtendedGraph):
             self._score2 += self._incorporate_structure_prior(self._actions_amat[:self.nactions, :self.nactions])
 
     def _score_proposal_mLL_stable(self, actions_amat: np.ndarray, targets: List[int]) -> Dict:
-        raise NotImplementedError
         aamat_col = actions_amat[:,targets]
         LL = np.log(self.alpha)*np.matmul(self._D1, 1 - aamat_col) + \
             np.log(1 - self.alpha)*np.matmul(self._D0, 1 - aamat_col) + \
             np.log(1 - self.beta)*np.matmul(self._D1, aamat_col) + \
             np.log(self.beta)*np.matmul(self._D0, aamat_col)
-        LLP_diff = np.logaddexp(LL+np.log(self._attachments_prior[:, targets]), -self._LLP[:, targets])
-        LLP_sums = np.logaddexp(self._LLP_sums, LLP_diff.flat)
+        b = np.ones((self._LLP_sums.shape[0], 3))
+        b[:,2] = -b[:,2]
+        LLP_sums = logsumexp(np.c_[self._LLP_sums[:,None], LL + np.log(self._attachments_prior[:, targets]), self._LLP[:, targets]], 
+                             b = b, axis = 1)
         score2 = np.sum(LLP_sums)
         if self._structure_prior is not None:
             score2 += self._incorporate_structure_prior(actions_amat[:self.nactions, :self.nactions])
-        return {'actions_amat': actions_amat, 'score2': score2, 'LP_sums': LLP_sums, 'LP_diff': LLP_diff, 'targets': targets}
+        return {'actions_amat': actions_amat, 'score2': score2, 'LP_sums': LLP_sums, 'targets': targets}
 
     def _score_current_mLL(self):
         L = self.alpha**np.matmul(self._D1, 1 - self._actions_amat) * \
