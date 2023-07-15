@@ -11,6 +11,174 @@ from pynem.classes import ExtendedGraph
 import numpy as np
 from scipy.special import logsumexp
 
+class nem:
+    def __init__(self, data: np.ndarray = np.array([]), col_data: list = list(), row_data: list = list(),
+                 actions: list = list(), effects: list = list(),
+                 structure_prior: np.ndarray = None, attachments_prior: np.ndarray = None, 
+                 alpha: float = 0.13, beta: float = 0.05, lambda_reg: float = 0, delta: float = 1,
+                 effects_selection: str = 'regularisation'):
+        #misc and hyper-parameters
+        self._score = None
+        if not (alpha >= 0 and alpha <= 1):
+                raise ValueError("alpha must be between 0 and 1")
+        if not (beta >= 0 and beta <= 1):
+                raise ValueError("beta must be between 0 and 1")
+        if lambda_reg < 0:
+            raise ValueError("lambda_reg cannot be negative")
+        if delta < 0:
+            raise ValueError("delta cannot be negative")
+        if effects_selection not in {'regularisation', 'iterative'}:
+            raise ValueError("effects_selection must be either 'regularisation' or 'iterative'")
+        self._alpha = alpha
+        self._beta = beta
+        self._lambda_reg = lambda_reg
+        self._delta = delta
+        self._effects_selection = effects_selection
+
+        self._data = data.copy()
+        self._col_data = np.array(col_data)
+        self._row_data = np.array(row_data)
+
+        actions = np.array(actions)
+        effects = np.array(effects)
+
+        if self._data.size > 0:
+            if self._col_data.size > 0:
+                if not self._data.shape[1] == self._col_data.size:
+                    raise ValueError("Dimensions of data and col_data do not match!")
+                if actions.size > 0:
+                    if not np.all(np.isin(actions, self._col_data)):
+                        raise ValueError("Not all provided actions found in col_data!")
+                else:
+                    _, idx = np.unique(self._col_data, return_index=True)
+                    actions = self._col_data[idx]
+            else:
+                if actions.size > 0:
+                    if not self._data.shape[1] == actions.size:
+                        raise ValueError("Dimensions of data and actions do not match!")
+                    else:
+                        self._col_data = actions
+                else:
+                    actions = np.array(range(self._data.shape[1]))
+                    self._col_data = actions
+            if self._row_data.size > 0:
+                if not self._data.shape[0] == self._row_data.size:
+                    raise ValueError("Dimensions of data and row_data do not match!")
+                if effects.size > 0:
+                    if not np.all(np.isin(effects, self._row_data)):
+                        raise ValueError("Not all provided effects found in row_data!")
+                else:
+                    effects = self._row_data
+            else:
+                if effects.size > 0:
+                    if not self._data.shape[0] == effects.size:
+                        raise ValueError("Dimensions of data and effects do not match!")
+                    else:
+                        self._row_data = effects
+                else:
+                    effects = np.array(range(self._data.shape[0]))
+                    self._row_data = effects
+        
+        self._nactions = len(actions)
+        self._neffects = len(effects)
+
+        self._structure_prior = None
+        if structure_prior is not None:
+            if actions.size > 0:
+                if structure_prior.shape[0] == actions.size:
+                    self._structure_prior = structure_prior.copy()
+                else:
+                    raise ValueError("Dimenions of structure_prior and actions do not match!")
+            else:
+                self._structure_prior = structure_prior.copy()
+                actions = np.array(range(self._structure_prior.shape[0]))
+        else:
+            if self._lambda_reg > 0:
+                self._structure_prior = np.eye(self._nactions)
+        
+        self._attachments_prior = None
+        if attachments_prior is not None:
+            if effects.size > 0:
+                if attachments_prior.shape[0] == effects.size:
+                    self._attachments_prior = attachments_prior.copy()
+                else:
+                    raise ValueError("Dimenions of attachments_prior and actions do not match!")
+            else:
+                self._attachments_prior = attachments_prior.copy()
+                effects = np.array(range(self._attachments_prior.shape[0]))
+        else:
+            self._attachments_prior = np.full((self._neffects, self._nactions), 1/self._nactions)
+        
+        #This adds the null actions to the attachments prior
+        if self._attachments_prior.shape[1] != self._nactions + 1:
+            self._attachments_prior = np.c_[self._attachments_prior, np.full(self._neffects, 1/self._nactions)]
+            self._attachments_prior[:,self._nactions] = self.delta/self._nactions
+            self._attachments_prior = self._attachments_prior/self._attachments_prior.sum(axis=1)[:, None]
+        
+        #This computes the log likelihood ratio matrix (from binary input data in this case)
+        
+
+    def logmarginalposterior(self, model: np.ndarray):
+        LL = np.log(self.alpha)*(self._D1 @ (1 - model)) + \
+            np.log(1 - self.alpha)*(self._D0 @ (1 - model)) + \
+            np.log(1 - self.beta)*(self._D1 @ model) + \
+            np.log(self.beta)*(self._D0 @ model)
+        self._LLP = LL+np.log(self._attachments_prior)
+        self._LLP_sums = logsumexp(self._LLP,axis=1)
+        score = np.sum(self._LLP_sums)
+        if self._structure_prior is not None:
+            score += self._incorporate_structure_prior(model[:self._nactions, :self._nactions])
+        return score
+
+class nemcmc:
+    def __init__(self, nem: nem, init: np.ndarray, n: int = 1e5, burn_in: int = 1e4):
+        
+        self._nem = nem
+        self._init = init
+        self._n = n
+        self._burn_in = burn_in
+        
+        neighbours = set()
+
+        self._parents = defaultdict(set)
+        self._children = defaultdict(set)
+
+        np.fill_diagonal(self._init, 0)
+
+        for i in range(self._init.shape[0]):
+            self._children[i] = set(self._init[i].nonzero()[0])
+            self._parents[i] = set(self._init.T[i].nonzero()[0])
+
+        for i in range(self._init.shape[0]):
+            for j in range(self._init.shape[0]):
+                if i == j:
+                    continue
+                if not self._init[i,j] and self._init[j,i]:
+                    if self.can_insert(i,j):
+                        neighbours.add((i,j,'a'))
+                if self._init[i,j]:
+                    if self.can_delete(i,j):
+                        neighbours.add((i,j,'d'))
+
+        i = 0
+        while i < self._n:
+            change = np.random.choice(list(neighbours))
+            unif = np.random.uniform()
+            proposal = self._init.copy()
+            if change[2] == 'a':
+                proposal[change[0], change[1]] = 1
+            else:
+                proposal[change[0], change[1]] = 0
+            prop_post = nem.logmarginalposterior(proposal)
+
+
+    def can_insert(self, i:int ,j:int):
+        return self._parents[i].issubset(self._parents[j]) \
+            and self._children[j].issubset(self._children[i])
+    
+    def can_delete(self, i: int, j: int):
+        return len(self._children[i].intersection(self._parents[j])) == 0
+
 class NestedEffectsModel(ExtendedGraph):
     """
     Class uniting the data, graph and learning algorithms to facilitate scoring and learning of Nested Effects Models.
