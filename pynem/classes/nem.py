@@ -109,6 +109,9 @@ class nem:
         else:
             self._attachments_prior = np.full((self._neffects, self._nactions), 1/self._nactions)
         
+        self._actions = actions
+        self._effects = effects
+        
         #This adds the null actions to the attachments prior
         if self._attachments_prior.shape[1] != self._nactions + 1:
             self._attachments_prior = np.c_[self._attachments_prior, np.full(self._neffects, 1/self._nactions)]
@@ -121,9 +124,9 @@ class nem:
             self._D0 = (self._data == 0).astype('int64')
             DNaN = np.isnan(self._data).astype('int64')
         else:
-            self._D1 = np.array([np.sum(self._data.T[a == self._col_data] == 1, axis = 0) for a in self.actions()]).T
-            self._D0 = np.array([np.sum(self._data.T[a == self._col_data] == 0, axis = 0) for a in self.actions()]).T
-            DNaN = np.array([np.sum(np.isnan(self._data.T[a == self._col_data]), axis = 0) for a in self.actions()]).T
+            self._D1 = np.array([np.sum(self._data.T[a == self._col_data] == 1, axis = 0) for a in self._actions]).T
+            self._D0 = np.array([np.sum(self._data.T[a == self._col_data] == 0, axis = 0) for a in self._actions]).T
+            DNaN = np.array([np.sum(np.isnan(self._data.T[a == self._col_data]), axis = 0) for a in self._actions]).T
         #following two lines means that if there is a NaN, it has likelihood = 1, hence doesn't affect score
         self._D1 += DNaN
         self._D0 += DNaN
