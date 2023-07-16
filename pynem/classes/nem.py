@@ -182,7 +182,8 @@ class nemcmc:
         curr_post = nem._logmarginalposterior(self._curr)
         i = 0
         while i < self._n:
-            change = np.random.choice(list(self._neighbours))
+            neigh_list = list(self._neighbours)
+            change = neigh_list[np.random.choice(range(len(neigh_list)))]
             unif = np.random.uniform()
             proposal = self._curr.copy()
             if change[2] == 'a':
