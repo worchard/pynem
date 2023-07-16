@@ -157,6 +157,8 @@ class nemcmc:
         self._parents = defaultdict(set)
         self._children = defaultdict(set)
 
+        self._out = np.zeros(self._curr.shape)
+
         np.fill_diagonal(self._curr, 0)
 
         for i in range(self._curr.shape[0]):
@@ -193,7 +195,11 @@ class nemcmc:
                 self._curr = proposal
                 self.update_current(change)
             if i > self._burn_in:
-                pass
+                self._out += self._curr[:nem._nactions, :nem._nactions]
+            i += 1
+        
+        self._out /= (self._n - self._burn_in)
+        np.fill_diagonal(self._out, 1)
 
     def update_current(self, change: tuple):
         self._neighbours.discard(change)
@@ -230,7 +236,6 @@ class nemcmc:
                     self._neighbours.add((j,node,'d'))
                 else:
                     self._neighbours.discard(j,node,'d')
-
 
     def accept(self, proposal: float, current: float):
         return min(1, np.exp(proposal - current))
