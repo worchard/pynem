@@ -132,10 +132,10 @@ class nem:
         self._D0 += DNaN
 
         null_mat = np.log(self._alpha)*self._D1 + np.log(1-self._alpha)*self._D0
-        self._null_const = np.sum(null_mat, axis = 1)
+        #self._null_const = np.sum(null_mat, axis = 1) this line is essentially never necessary
         self._R = np.log(1-self._beta)*self._D1 + np.log(self._beta)*self._D0 - null_mat
 
-    def logmarginalposterior(self, model: np.ndarray):
+    def _logmarginalposterior(self, model: np.ndarray):
         LL = self._R @ model
         self._LLP = LL+np.log(self._attachments_prior)
         self._LLP_sums = logsumexp(self._LLP,axis=1)
@@ -148,43 +148,92 @@ class nemcmc:
     def __init__(self, nem: nem, init: np.ndarray, n: int = 1e5, burn_in: int = 1e4):
         
         self._nem = nem
-        self._init = init
+        self._curr = init.copy()
         self._n = n
         self._burn_in = burn_in
         
-        neighbours = set()
+        self._neighbours = set()
 
         self._parents = defaultdict(set)
         self._children = defaultdict(set)
 
-        np.fill_diagonal(self._init, 0)
+        np.fill_diagonal(self._curr, 0)
 
-        for i in range(self._init.shape[0]):
-            self._children[i] = set(self._init[i].nonzero()[0])
-            self._parents[i] = set(self._init.T[i].nonzero()[0])
+        for i in range(self._curr.shape[0]):
+            self._children[i] = set(self._curr[i].nonzero()[0])
+            self._parents[i] = set(self._curr.T[i].nonzero()[0])
 
-        for i in range(self._init.shape[0]):
-            for j in range(self._init.shape[0]):
+        for i in range(self._curr.shape[0]):
+            for j in range(self._curr.shape[0]):
                 if i == j:
                     continue
-                if not self._init[i,j] and self._init[j,i]:
+                if not (self._curr[i,j] or self._curr[j,i]):
                     if self.can_insert(i,j):
-                        neighbours.add((i,j,'a'))
-                if self._init[i,j]:
+                        self._neighbours.add((i,j,'a'))
+                if self._curr[i,j]:
                     if self.can_delete(i,j):
-                        neighbours.add((i,j,'d'))
+                        self._neighbours.add((i,j,'d'))
 
+        #This line adds a null action column, currently by default
+        self._curr = np.c_[self._curr, np.zeros((self._curr.shape[0], 1))]
+        
+        curr_post = nem._logmarginalposterior(self._curr)
         i = 0
         while i < self._n:
-            change = np.random.choice(list(neighbours))
+            change = np.random.choice(list(self._neighbours))
             unif = np.random.uniform()
-            proposal = self._init.copy()
+            proposal = self._curr.copy()
             if change[2] == 'a':
                 proposal[change[0], change[1]] = 1
             else:
                 proposal[change[0], change[1]] = 0
-            prop_post = nem.logmarginalposterior(proposal)
+            prop_post = nem._logmarginalposterior(proposal)
+            if unif <= self.accept(curr_post, prop_post):
+                curr_post = prop_post
+                self._curr = proposal
+                self.update_current(change)
+            if i > self._burn_in:
+                pass
 
+    def update_current(self, change: tuple):
+        self._neighbours.discard(change)
+        i, j, t = change
+        if t == 'a':
+            self._children[i].add(j)
+            self._parents[j].add(i)
+        else:
+            self._children[i].remove(j)
+            self._parents[j].remove(i)
+        self.do_checks(i)
+        self.do_checks(j)
+
+    def do_checks(self, node: int):
+        for j in range(self._curr.shape[0]):
+            if j == node:
+                continue
+            if not (self._curr[node,j] or self._curr[j,node]):
+                    if self.can_insert(node,j):
+                        self._neighbours.add((node,j,'a'))
+                    else:
+                        self._neighbours.discard((node,j,'a'))
+                    if self.can_insert(j,node):
+                        self._neighbours.add((j,node,'a'))
+                    else:
+                        self._neighbours.discard((j,node,'a'))
+            if self._curr[node,j]:
+                if self.can_delete(node,j):
+                    self._neighbours.add((node,j,'d'))
+                else:
+                    self._neighbours.discard(node,j,'d')
+            if self._curr[j,node]:
+                if self.can_delete(j,node):
+                    self._neighbours.add((j,node,'d'))
+                else:
+                    self._neighbours.discard(j,node,'d')
+
+
+    def accept(self, proposal: float, current: float):
+        return min(1, np.exp(proposal - current))
 
     def can_insert(self, i:int ,j:int):
         return self._parents[i].issubset(self._parents[j]) \
