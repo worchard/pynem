@@ -116,13 +116,24 @@ class nem:
             self._attachments_prior = self._attachments_prior/self._attachments_prior.sum(axis=1)[:, None]
         
         #This computes the log likelihood ratio matrix (from binary input data in this case)
-        
+        if self._nactions == self._col_data.size:
+            self._D1 = (self._data == 1).astype('int64')
+            self._D0 = (self._data == 0).astype('int64')
+            DNaN = np.isnan(self._data).astype('int64')
+        else:
+            self._D1 = np.array([np.sum(self._data.T[a == self._col_data] == 1, axis = 0) for a in self.actions()]).T
+            self._D0 = np.array([np.sum(self._data.T[a == self._col_data] == 0, axis = 0) for a in self.actions()]).T
+            DNaN = np.array([np.sum(np.isnan(self._data.T[a == self._col_data]), axis = 0) for a in self.actions()]).T
+        #following two lines means that if there is a NaN, it has likelihood = 1, hence doesn't affect score
+        self._D1 += DNaN
+        self._D0 += DNaN
+
+        null_mat = np.log(self._alpha)*self._D1 + np.log(1-self._alpha)*self._D0
+        self._null_const = np.sum(null_mat, axis = 1)
+        self._R = np.log(1-self._beta)*self._D1 + np.log(self._beta)*self._D0 - null_mat
 
     def logmarginalposterior(self, model: np.ndarray):
-        LL = np.log(self.alpha)*(self._D1 @ (1 - model)) + \
-            np.log(1 - self.alpha)*(self._D0 @ (1 - model)) + \
-            np.log(1 - self.beta)*(self._D1 @ model) + \
-            np.log(self.beta)*(self._D0 @ model)
+        LL = self._R @ model
         self._LLP = LL+np.log(self._attachments_prior)
         self._LLP_sums = logsumexp(self._LLP,axis=1)
         score = np.sum(self._LLP_sums)
