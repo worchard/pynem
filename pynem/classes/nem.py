@@ -231,12 +231,12 @@ class nemcmc:
                 if self.can_delete(node,j):
                     self._neighbours.add((node,j,'d'))
                 else:
-                    self._neighbours.discard(node,j,'d')
+                    self._neighbours.discard((node,j,'d'))
             if self._curr[j,node]:
                 if self.can_delete(j,node):
                     self._neighbours.add((j,node,'d'))
                 else:
-                    self._neighbours.discard(j,node,'d')
+                    self._neighbours.discard((j,node,'d'))
 
     def accept(self, proposal: float, current: float):
         return min(1, np.exp(proposal - current))
