@@ -112,7 +112,7 @@ class nem:
         #This adds the null actions to the attachments prior
         if self._attachments_prior.shape[1] != self._nactions + 1:
             self._attachments_prior = np.c_[self._attachments_prior, np.full(self._neffects, 1/self._nactions)]
-            self._attachments_prior[:,self._nactions] = self.delta/self._nactions
+            self._attachments_prior[:,self._nactions] = self._delta/self._nactions
             self._attachments_prior = self._attachments_prior/self._attachments_prior.sum(axis=1)[:, None]
         
         #This computes the log likelihood ratio matrix (from binary input data in this case)
