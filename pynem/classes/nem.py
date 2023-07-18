@@ -10,6 +10,7 @@ from pynem.classes import ExtendedGraph
 
 import numpy as np
 from scipy.special import logsumexp
+import matplotlib.pyplot as plt
 
 class nem:
     def __init__(self, data: np.ndarray = np.array([]), col_data: list = list(), row_data: list = list(),
@@ -253,6 +254,24 @@ class nemcmc:
     
     def can_delete(self, i: int, j: int):
         return self._curr[i,j] and len(self._children[i].intersection(self._parents[j])) == 0
+    
+    def convergence_plots(self, up_to = None):
+        if up_to is None:
+            up_to = self._n
+        up_to = min(self._n, up_to)
+        x = np.arange(up_to)
+        fig, axs = plt.subplots(1,2)
+
+        axs[0].plot(x, self._arratio[:up_to+1])
+        axs[0].set_xlabel('Iteration number')
+        axs[0].set_ylabel('Accept/reject ratio')
+
+        axs[1].plot(x,self._avg_nedges[1:up_to+1])
+        axs[1].set_xlabel('Iteration number')
+        axs[1].set_ylabel('Moving average number of edges')
+
+        plt.tight_layout()
+        plt.show()
 
 class NestedEffectsModel(ExtendedGraph):
     """
