@@ -189,7 +189,7 @@ class nemcmc:
             else:
                 proposal[change[0], change[1]] = 0
             prop_post = nem._logmarginalposterior(proposal)
-            if unif <= self.accept(curr_post, prop_post):
+            if unif <= self.accept(prop_post, curr_post):
                 curr_post = prop_post
                 self._curr = proposal
                 self.update_current(change)
