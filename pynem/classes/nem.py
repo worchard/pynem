@@ -169,11 +169,9 @@ class nemcmc:
             for j in range(self._curr.shape[0]):
                 if i == j:
                     continue
-                if not (self._curr[i,j] or self._curr[j,i]):
-                    if self.can_insert(i,j):
+                if self.can_insert(i,j):
                         self._neighbours.add((i,j,'a'))
-                if self._curr[i,j]:
-                    if self.can_delete(i,j):
+                if self.can_delete(i,j):
                         self._neighbours.add((i,j,'d'))
 
         #This line adds a null action column, currently by default
@@ -195,7 +193,7 @@ class nemcmc:
                 curr_post = prop_post
                 self._curr = proposal
                 self.update_current(change)
-            if i > self._burn_in:
+            if i >= self._burn_in:
                 self._out += self._curr[:nem._nactions, :nem._nactions]
             i += 1
         
@@ -218,35 +216,32 @@ class nemcmc:
         for j in range(self._curr.shape[0]):
             if j == node:
                 continue
-            if not (self._curr[node,j] or self._curr[j,node]):
-                    if self.can_insert(node,j):
-                        self._neighbours.add((node,j,'a'))
-                    else:
-                        self._neighbours.discard((node,j,'a'))
-                    if self.can_insert(j,node):
-                        self._neighbours.add((j,node,'a'))
-                    else:
-                        self._neighbours.discard((j,node,'a'))
-            if self._curr[node,j]:
-                if self.can_delete(node,j):
-                    self._neighbours.add((node,j,'d'))
-                else:
-                    self._neighbours.discard((node,j,'d'))
-            if self._curr[j,node]:
-                if self.can_delete(j,node):
-                    self._neighbours.add((j,node,'d'))
-                else:
-                    self._neighbours.discard((j,node,'d'))
+            if self.can_insert(node,j):
+                self._neighbours.add((node,j,'a'))
+            else:
+                self._neighbours.discard((node,j,'a'))
+            if self.can_insert(j,node):
+                self._neighbours.add((j,node,'a'))
+            else:
+                self._neighbours.discard((j,node,'a'))
+            if self.can_delete(node,j):
+                self._neighbours.add((node,j,'d'))
+            else:
+                self._neighbours.discard((node,j,'d'))
+            if self.can_delete(j,node):
+                self._neighbours.add((j,node,'d'))
+            else:
+                self._neighbours.discard((j,node,'d'))
 
     def accept(self, proposal: float, current: float):
         return min(1, np.exp(proposal - current))
 
     def can_insert(self, i:int ,j:int):
-        return self._parents[i].issubset(self._parents[j]) \
-            and self._children[j].issubset(self._children[i])
+        return not self._curr[i,j] and not self._curr[j,i] and \
+            self._parents[i].issubset(self._parents[j]) and self._children[j].issubset(self._children[i])
     
     def can_delete(self, i: int, j: int):
-        return len(self._children[i].intersection(self._parents[j])) == 0
+        return self._curr[i,j] and len(self._children[i].intersection(self._parents[j])) == 0
 
 class NestedEffectsModel(ExtendedGraph):
     """
