@@ -263,10 +263,12 @@ class nemcmc:
         fig, axs = plt.subplots(1,2)
 
         axs[0].plot(x, self._arratio[:up_to+1])
+        axs[0].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5)
         axs[0].set_xlabel('Iteration number')
         axs[0].set_ylabel('Accept/reject ratio')
 
         axs[1].plot(x,self._avg_nedges[1:up_to+1])
+        axs[1].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5)
         axs[1].set_xlabel('Iteration number')
         axs[1].set_ylabel('Moving average number of edges')
 
