@@ -149,6 +149,7 @@ class nemcmc:
         
         self._nem = nem
         self._curr = init.copy()
+        np.fill_diagonal(self._curr, 0) #This is so parents/children/neighbours are computed properly below
         self._n = n
         self._burn_in = burn_in
         
@@ -158,8 +159,10 @@ class nemcmc:
         self._children = defaultdict(set)
 
         self._out = np.zeros(self._curr.shape)
-
-        np.fill_diagonal(self._curr, 0)
+        self._arratio = []
+        nedges = self._curr.sum()
+        self._avg_nedges = []
+        self._avg_nedges.append(nedges)
 
         for i in range(self._curr.shape[0]):
             self._children[i] = set(self._curr[i].nonzero()[0])
@@ -179,6 +182,7 @@ class nemcmc:
         
         curr_post = nem._logmarginalposterior(self._curr)
         i = 0
+        accepts = 0
         while i < self._n:
             neigh_list = list(self._neighbours)
             change = neigh_list[np.random.choice(range(len(neigh_list)))]
@@ -193,6 +197,13 @@ class nemcmc:
                 curr_post = prop_post
                 self._curr = proposal
                 self.update_current(change)
+                accepts += 1
+                if change[2] == 'a':
+                    nedges += 1
+                else:
+                    nedges -= 1
+            self._arratio.append(accepts/(i+1))
+            self._avg_nedges.append((self._avg_nedges[i]*(i+1) + nedges)/(i+2))
             if i >= self._burn_in:
                 self._out += self._curr[:nem._nactions, :nem._nactions]
             i += 1
