@@ -135,6 +135,18 @@ class nem:
         null_mat = np.log(self._alpha)*self._D1 + np.log(1-self._alpha)*self._D0
         #self._null_const = np.sum(null_mat, axis = 1) this line is essentially never necessary
         self._R = np.log(1-self._beta)*self._D1 + np.log(self._beta)*self._D0 - null_mat
+    
+    def _phi_distr(self, model: np.ndarray, a=1, b=0.1):
+        d = np.abs(model - self._structure_prior)
+        pPhi = a/(2*b)*(1 + d/b)**(-a-1)
+        return np.sum(np.log(pPhi))
+    
+    def _incorporate_structure_prior(self, model: np.ndarray):
+        if self._lambda_reg != 0:
+            return -self._lambda_reg*np.sum(np.abs(model - self._structure_prior)) + \
+                np.log(self._lambda_reg*0.5)*2**self.nactions
+        else:
+            return self._phi_distr(model)
 
     def _logmarginalposterior(self, model: np.ndarray):
         LL = self._R @ model
