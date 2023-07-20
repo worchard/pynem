@@ -290,7 +290,8 @@ class nemcmc:
 class JointNEMCMC:
     def __init__(self, nem_list: List[nem], init_list: List[np.ndarray], init_meta: np.ndarray, n: 1e5, burn_in: int = 1e4):
         self._K = len(nem_list)
-        self._curr_list = [init.copy() for init in init_list]
+        #The next line copies each of the inputs and adds a null action column to each
+        self._curr_list = [np.c_[init, np.zeros((init.shape[0],1))] for init in init_list]
         self._curr_meta = init_meta.copy()
         for c in self._curr_list:
             np.fill_diagonal(c, 0)
