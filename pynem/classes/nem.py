@@ -287,6 +287,72 @@ class nemcmc:
         plt.tight_layout()
         plt.show()
 
+class JointNEMCMC:
+    def __init__(self, nem_list: List[nem], init_list: List[np.ndarray], init_meta: np.ndarray, n: 1e5, burn_in: int = 1e4):
+        self._K = len(nem_list)
+        self._curr_list = [init.copy() for init in init_list]
+        self._curr_meta = init_meta.copy()
+        for c in self._curr_list:
+            np.fill_diagonal(c, 0)
+        np.fill_diagonal(self._curr_meta, 0)
+        self._n = n
+        self._burn_in = burn_in
+
+        self._neighbours_list = [set() for k in range(self._K)]
+        self._parents_list = [defaultdict(set) for k in range(self._K)]
+        self._children_list = [defaultdict(set) for k in range(self._K)]
+
+        self._neighbours_meta = set()
+        self._parents_meta = defaultdict(set)
+        self._children_meta = defaultdict(set)
+
+        self._out_list = [np.zeros(self._curr_meta.shape) for k in range(self._K)]
+        self._out_meta = np.zeros(self._curr_meta.shape)
+        self._nu_list = [[] for k in range(self._K)]
+
+        for k in range(self._K):
+            for i in range(self._curr_meta.shape[0]):
+                self._children_list[k][i] = set(self._curr_list[k][i].nonzero()[0])
+                self._parents_list[k][i] = set(self._curr_list[k].T[i].nonzero()[0])
+        
+        for i in range(self._curr_meta.shape[0]):
+            self._children_meta[i] = set(self._curr_meta[i].nonzero()[0])
+            self._parents_meta[i] = set(self._curr_meta.T[i].nonzero()[0])
+        
+        for k in range(self._K):
+            for i in range(self._curr_meta.shape[0]):
+                for j in range(self._curr_meta.shape[0]):
+                    if i == j:
+                        continue
+                    if self.can_insert(i,j,k):
+                        self._neighbours_list[k].add((i,j,'a'))
+                    if self.can_delete(i,j,k):
+                        self._neighbours_list[k].add((i,j,'d'))
+        
+        for i in range(self._curr_meta.shape[0]):
+            for j in range(self._curr_meta.shape[0]):
+                if i == j:
+                    continue
+                if self.can_insert_meta(i,j):
+                    self._neighbours_meta.add((i,j,'a'))
+                if self.can_delete_meta(i,j):
+                    self._neighbours_meta.add((i,j,'d'))
+
+    def can_insert(self, i: int, j: int, k: int):
+        return not self._curr_list[k][i,j] and not self._curr_list[k][j,i] and \
+                self._parents_list[k][i].issubset(self._parents_list[k][j]) and \
+                    self._children_list[k][j].issubset(self._children_list[k][i])
+    
+    def can_insert_meta(self, i: int, j: int):
+        return not self._curr_meta[i,j] and not self._curr_meta[j,i] and \
+            self._parents_meta[i].issubset(self._parents_meta[j]) and self._children_meta[j].issubset(self._children_meta[i])
+    
+    def can_delete(self, i: int, j: int, k: int):
+        return self._curr_list[k][i,j] and len(self._children_list[k][i].intersection(self._parents_list[k][j])) == 0
+    
+    def can_delete_meta(self, i: int, j: int):
+        return self._curr_meta[i,j] and len(self._children_meta[i].intersection(self._parents_meta[j])) == 0
+    
 class NestedEffectsModel(ExtendedGraph):
     """
     Class uniting the data, graph and learning algorithms to facilitate scoring and learning of Nested Effects Models.
