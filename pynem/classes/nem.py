@@ -338,6 +338,23 @@ class JointNEMCMC:
                     self._neighbours_meta.add((i,j,'a'))
                 if self.can_delete_meta(i,j):
                     self._neighbours_meta.add((i,j,'d'))
+        
+        i = 0
+        while i < self._n:
+            for k in range(self._K):
+                neigh_list = list(self._neighbours_list[k])
+                change = neigh_list[np.random.choice(range(len(neigh_list)))]
+                unif = np.random.uniform()
+                proposal = self._curr_list[k].copy()
+                if change[2] == 'a':
+                    proposal[change[0], change[1]] = 1
+                else:
+                    proposal[change[0], change[1]] = 0
+                prop_post = nem_list[k]._logmarginalposterior(proposal)
+
+    #Should be changed to reflect fact that Hamming distance will only change by 1 between old and new proposals
+    def laplace(self,model,k):
+        return -1*np.exp(self._nu_list[k])*np.abs(model-self._curr_meta).sum()
 
     def can_insert(self, i: int, j: int, k: int):
         return not self._curr_list[k][i,j] and not self._curr_list[k][j,i] and \
