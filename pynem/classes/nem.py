@@ -186,9 +186,9 @@ class nemcmc:
                 if i == j:
                     continue
                 if self.can_insert(i,j):
-                        self._neighbours.add((i,j,'a'))
+                        self._neighbours.add((i,j,1))
                 if self.can_delete(i,j):
-                        self._neighbours.add((i,j,'d'))
+                        self._neighbours.add((i,j,0))
 
         #This line adds a null action column, currently by default
         self._curr = np.c_[self._curr, np.zeros((self._curr.shape[0], 1))]
@@ -201,17 +201,14 @@ class nemcmc:
             change = neigh_list[np.random.choice(range(len(neigh_list)))]
             unif = np.random.uniform()
             proposal = self._curr.copy()
-            if change[2] == 'a':
-                proposal[change[0], change[1]] = 1
-            else:
-                proposal[change[0], change[1]] = 0
+            proposal[change[0], change[1]] = change[2]
             prop_post = nem._logmarginalposterior(proposal)
             if unif <= self.accept(prop_post, curr_post):
                 curr_post = prop_post
                 self._curr = proposal
                 self.update_current(change)
                 accepts += 1
-                if change[2] == 'a':
+                if change[2] == 1:
                     nedges += 1
                 else:
                     nedges -= 1
@@ -227,7 +224,7 @@ class nemcmc:
     def update_current(self, change: tuple):
         self._neighbours.discard(change)
         i, j, t = change
-        if t == 'a':
+        if t == 1:
             self._children[i].add(j)
             self._parents[j].add(i)
         else:
@@ -241,21 +238,21 @@ class nemcmc:
             if j == node:
                 continue
             if self.can_insert(node,j):
-                self._neighbours.add((node,j,'a'))
+                self._neighbours.add((node,j,1))
             else:
-                self._neighbours.discard((node,j,'a'))
+                self._neighbours.discard((node,j,1))
             if self.can_insert(j,node):
-                self._neighbours.add((j,node,'a'))
+                self._neighbours.add((j,node,1))
             else:
-                self._neighbours.discard((j,node,'a'))
+                self._neighbours.discard((j,node,1))
             if self.can_delete(node,j):
-                self._neighbours.add((node,j,'d'))
+                self._neighbours.add((node,j,0))
             else:
-                self._neighbours.discard((node,j,'d'))
+                self._neighbours.discard((node,j,0))
             if self.can_delete(j,node):
-                self._neighbours.add((j,node,'d'))
+                self._neighbours.add((j,node,0))
             else:
-                self._neighbours.discard((j,node,'d'))
+                self._neighbours.discard((j,node,0))
 
     def accept(self, proposal: float, current: float):
         return min(1, np.exp(proposal - current))
@@ -326,18 +323,18 @@ class JointNEMCMC:
                     if i == j:
                         continue
                     if self.can_insert(i,j,k):
-                        self._neighbours_list[k].add((i,j,'a'))
+                        self._neighbours_list[k].add((i,j,1))
                     if self.can_delete(i,j,k):
-                        self._neighbours_list[k].add((i,j,'d'))
+                        self._neighbours_list[k].add((i,j,0))
         
         for i in range(self._curr_meta.shape[0]):
             for j in range(self._curr_meta.shape[0]):
                 if i == j:
                     continue
                 if self.can_insert_meta(i,j):
-                    self._neighbours_meta.add((i,j,'a'))
+                    self._neighbours_meta.add((i,j,1))
                 if self.can_delete_meta(i,j):
-                    self._neighbours_meta.add((i,j,'d'))
+                    self._neighbours_meta.add((i,j,0))
         
         i = 0
         while i < self._n:
@@ -346,10 +343,7 @@ class JointNEMCMC:
                 change = neigh_list[np.random.choice(range(len(neigh_list)))]
                 unif = np.random.uniform()
                 proposal = self._curr_list[k].copy()
-                if change[2] == 'a':
-                    proposal[change[0], change[1]] = 1
-                else:
-                    proposal[change[0], change[1]] = 0
+                proposal[change[0], change[1]] = change[2]
                 prop_post = nem_list[k]._logmarginalposterior(proposal)
 
     #Should be changed to reflect fact that Hamming distance will only change by 1 between old and new proposals
