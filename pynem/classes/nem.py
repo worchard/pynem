@@ -286,7 +286,8 @@ class nemcmc:
         plt.show()
 
 class JointNEMCMC:
-    def __init__(self, nem_list: List[nem], init_list: List[np.ndarray], init_meta: np.ndarray, n: 1e5, burn_in: int = 1e4):
+    def __init__(self, nem_list: List[nem], init_list: List[np.ndarray], init_meta: np.ndarray, n: 1e5, burn_in: int = 1e4, 
+                 sigma: float = 10):
         self._K = len(nem_list)
         self._nactions = nem_list[0]._nactions
         #The next line copies each of the inputs and adds a null action column to each
@@ -365,11 +366,16 @@ class JointNEMCMC:
             
             #Proposals for nu parameters
             for k in range(self._K):
-                pass
+                unif = np.random.uniform()
+                proposal = np.random.normal(self._nu_list[k], sigma)
 
 
             i += 1
 
+    def nu_laplace_ratio(self, proposal, k):
+        return self._nactions*(self._nactions - 1)*(np.log(1+np.exp(-1*np.exp(self._nu_list[k])))-np.log(1+np.exp(-1*np.exp(proposal))))+\
+        self._hamming_dists[k]*(np.exp(self._nu_list[k])-np.exp(proposal))
+    
     def update_current(self, change: tuple, k: int):
         self._neighbours_list[k].discard(change)
         i, j, t = change
