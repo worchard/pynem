@@ -343,6 +343,7 @@ class JointNEMCMC:
         curr_post_list = [nem_list[k]._logmarginalposterior(self._curr_list[k])-np.exp(self._nu_list[k])*self._hamming_dists[k] for k in range(self._K)]
         i = 0
         while i < self._n:
+            #Proposals for graphs
             for k in range(self._K):
                 neigh_list = list(self._neighbours_list[k])
                 change = neigh_list[np.random.choice(range(len(neigh_list)))]
@@ -354,6 +355,53 @@ class JointNEMCMC:
                 else:
                     prop_hamming = self._hamming_dists[k] + 1
                 prop_post = nem_list[k]._logmarginalposterior(proposal) - np.exp(self._nu_list[k])*prop_hamming
+                if unif <= min(1, np.exp(prop_post - curr_post_list[k])):
+                    curr_post_list[k] = prop_post
+                    self._curr_list[k] = proposal
+                    self._hamming_dists[k] = prop_hamming
+                    self.update_current(change, k)
+                if i >= self._burn_in:
+                    self._out_list[k] += self._curr_list[k][:,:self._nactions]
+            
+            #Proposals for nu parameters
+            for k in range(self._K):
+                pass
+
+
+            i += 1
+
+    def update_current(self, change: tuple, k: int):
+        self._neighbours_list[k].discard(change)
+        i, j, t = change
+        if t == 1:
+            self._children_list[k][i].add(j)
+            self._parents_list[k][j].add(i)
+        else:
+            self._children_list[k][i].remove(j)
+            self._parents_list[k][j].remove(i)
+        self.do_checks(i, k)
+        self.do_checks(j, k)
+
+    def do_checks(self, node: int, k: int):
+        for j in range(self._nactions):
+            if j == node:
+                continue
+            if self.can_insert(node,j,k):
+                self._neighbours_list[k].add((node,j,1))
+            else:
+                self._neighbours_list[k].discard((node,j,1))
+            if self.can_insert(j,node,k):
+                self._neighbours_list[k].add((j,node,1))
+            else:
+                self._neighbours_list[k].discard((j,node,1))
+            if self.can_delete(node,j,k):
+                self._neighbours_list[k].add((node,j,0))
+            else:
+                self._neighbours_list[k].discard((node,j,0))
+            if self.can_delete(j,node,k):
+                self._neighbours_list[k].add((j,node,0))
+            else:
+                self._neighbours_list[k].discard((j,node,0))    
 
     def can_insert(self, i: int, j: int, k: int):
         return not self._curr_list[k][i,j] and not self._curr_list[k][j,i] and \
