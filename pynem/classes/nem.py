@@ -308,7 +308,9 @@ class JointNEMCMC:
 
         self._out_list = [np.zeros(self._curr_meta.shape) for k in range(self._K)]
         self._out_meta = np.zeros(self._curr_meta.shape)
-        self._nu_list = [[] for k in range(self._K)]
+        self._nu_list = [[] for k in range(self._K)] ### NEED TO INITIALISE THIS PROPERLY
+
+        self._hamming_dists = [np.abs(m[:,:self._nactions]-self._curr_meta).sum() for m in self._curr_list]
 
         for k in range(self._K):
             for i in range(self._nactions):
@@ -338,6 +340,7 @@ class JointNEMCMC:
                 if self.can_delete_meta(i,j):
                     self._neighbours_meta.add((i,j,0))
         
+        curr_post_list = [nem_list[k]._logmarginalposterior(self._curr_list[k])-np.exp(self._nu_list[k])*self._hamming_dists[k] for k in range(self._K)]
         i = 0
         while i < self._n:
             for k in range(self._K):
@@ -346,11 +349,11 @@ class JointNEMCMC:
                 unif = np.random.uniform()
                 proposal = self._curr_list[k].copy()
                 proposal[change[0], change[1]] = change[2]
-                prop_post = nem_list[k]._logmarginalposterior(proposal)
-
-    #Should be changed to reflect fact that Hamming distance will only change by 1 between old and new proposals
-    def laplace(self,model,k):
-        return -1*np.exp(self._nu_list[k])*np.abs(model-self._curr_meta).sum()
+                if proposal[change[0], change[1]] == self._meta[change[0], change[1]]:
+                    prop_hamming = self._hamming_dists[k] - 1
+                else:
+                    prop_hamming = self._hamming_dists[k] + 1
+                prop_post = nem_list[k]._logmarginalposterior(proposal) - np.exp(self._nu_list[k])*prop_hamming
 
     def can_insert(self, i: int, j: int, k: int):
         return not self._curr_list[k][i,j] and not self._curr_list[k][j,i] and \
