@@ -161,6 +161,7 @@ class nemcmc:
     def __init__(self, nem: nem, init: np.ndarray, n: int = 1e5, burn_in: int = 1e4):
         
         self._nem = nem
+        self._nactions = nem._nactions
         self._curr = init.copy()
         np.fill_diagonal(self._curr, 0) #This is so parents/children/neighbours are computed properly below
         self._n = n
@@ -181,8 +182,8 @@ class nemcmc:
             self._children[i] = set(self._curr[i].nonzero()[0])
             self._parents[i] = set(self._curr.T[i].nonzero()[0])
 
-        for i in range(self._curr.shape[0]):
-            for j in range(self._curr.shape[0]):
+        for i in range(self._nactions):
+            for j in range(self._nactions):
                 if i == j:
                     continue
                 if self.can_insert(i,j):
@@ -191,7 +192,7 @@ class nemcmc:
                         self._neighbours.add((i,j,0))
 
         #This line adds a null action column, currently by default
-        self._curr = np.c_[self._curr, np.zeros((self._curr.shape[0], 1))]
+        self._curr = np.c_[self._curr, np.zeros((self._nactions, 1))]
         
         curr_post = nem._logmarginalposterior(self._curr)
         i = 0
@@ -234,7 +235,7 @@ class nemcmc:
         self.do_checks(j)
 
     def do_checks(self, node: int):
-        for j in range(self._curr.shape[0]):
+        for j in range(self._nactions):
             if j == node:
                 continue
             if self.can_insert(node,j):
@@ -287,6 +288,7 @@ class nemcmc:
 class JointNEMCMC:
     def __init__(self, nem_list: List[nem], init_list: List[np.ndarray], init_meta: np.ndarray, n: 1e5, burn_in: int = 1e4):
         self._K = len(nem_list)
+        self._nactions = nem_list[0]._nactions
         #The next line copies each of the inputs and adds a null action column to each
         self._curr_list = [np.c_[init, np.zeros((init.shape[0],1))] for init in init_list]
         self._curr_meta = init_meta.copy()
@@ -309,17 +311,17 @@ class JointNEMCMC:
         self._nu_list = [[] for k in range(self._K)]
 
         for k in range(self._K):
-            for i in range(self._curr_meta.shape[0]):
+            for i in range(self._nactions):
                 self._children_list[k][i] = set(self._curr_list[k][i].nonzero()[0])
                 self._parents_list[k][i] = set(self._curr_list[k].T[i].nonzero()[0])
         
-        for i in range(self._curr_meta.shape[0]):
+        for i in range(self._nactions):
             self._children_meta[i] = set(self._curr_meta[i].nonzero()[0])
             self._parents_meta[i] = set(self._curr_meta.T[i].nonzero()[0])
         
         for k in range(self._K):
-            for i in range(self._curr_meta.shape[0]):
-                for j in range(self._curr_meta.shape[0]):
+            for i in range(self._nactions):
+                for j in range(self._nactions):
                     if i == j:
                         continue
                     if self.can_insert(i,j,k):
@@ -327,8 +329,8 @@ class JointNEMCMC:
                     if self.can_delete(i,j,k):
                         self._neighbours_list[k].add((i,j,0))
         
-        for i in range(self._curr_meta.shape[0]):
-            for j in range(self._curr_meta.shape[0]):
+        for i in range(self._nactions):
+            for j in range(self._nactions):
                 if i == j:
                     continue
                 if self.can_insert_meta(i,j):
