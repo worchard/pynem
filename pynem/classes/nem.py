@@ -10,6 +10,7 @@ from pynem.classes import ExtendedGraph
 
 import numpy as np
 from scipy.special import logsumexp
+from scipy.stats import ga
 import matplotlib.pyplot as plt
 
 class nem:
@@ -216,7 +217,7 @@ class nemcmc:
             self._arratio.append(accepts/(i+1))
             self._avg_nedges.append((self._avg_nedges[i]*(i+1) + nedges)/(i+2))
             if i >= self._burn_in:
-                self._out += self._curr[:nem._nactions, :nem._nactions]
+                self._out += self._curr[:, :nem._nactions]
             i += 1
         
         self._out /= (self._n - self._burn_in)
@@ -341,7 +342,7 @@ class JointNEMCMC:
                 if self.can_delete_meta(i,j):
                     self._neighbours_meta.add((i,j,0))
         
-        curr_post_list = [nem_list[k]._logmarginalposterior(self._curr_list[k])-np.exp(self._nu_list[k])*self._hamming_dists[k] for k in range(self._K)]
+        curr_post_list = [nem_list[k]._logmarginalposterior(self._curr_list[k])-self._nu_list[k]*self._hamming_dists[k] for k in range(self._K)]
         i = 0
         while i < self._n:
             #Proposals for graphs
@@ -355,7 +356,7 @@ class JointNEMCMC:
                     prop_hamming = self._hamming_dists[k] - 1
                 else:
                     prop_hamming = self._hamming_dists[k] + 1
-                prop_post = nem_list[k]._logmarginalposterior(proposal) - np.exp(self._nu_list[k])*prop_hamming
+                prop_post = nem_list[k]._logmarginalposterior(proposal) - self._nu_list[k]*prop_hamming
                 if unif <= min(1, np.exp(prop_post - curr_post_list[k])):
                     curr_post_list[k] = prop_post
                     self._curr_list[k] = proposal
@@ -367,14 +368,14 @@ class JointNEMCMC:
             #Proposals for nu parameters
             for k in range(self._K):
                 unif = np.random.uniform()
-                proposal = np.random.normal(self._nu_list[k], sigma)
+                proposal = np.exp(np.random.normal(np.log(self._nu_list[k]), sigma))
 
 
             i += 1
 
     def nu_laplace_ratio(self, proposal, k):
-        return self._nactions*(self._nactions - 1)*(np.log(1+np.exp(-1*np.exp(self._nu_list[k])))-np.log(1+np.exp(-1*np.exp(proposal))))+\
-        self._hamming_dists[k]*(np.exp(self._nu_list[k])-np.exp(proposal))
+        return self._nactions*(self._nactions - 1)*(np.log(1+np.exp(-1*self._nu_list[k]))-np.log(1+np.exp(-1*proposal)))+\
+        self._hamming_dists[k]*(self._nu_list[k]-proposal)
     
     def update_current(self, change: tuple, k: int):
         self._neighbours_list[k].discard(change)
