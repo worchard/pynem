@@ -10,7 +10,7 @@ from pynem.classes import ExtendedGraph
 
 import numpy as np
 from scipy.special import logsumexp
-from scipy.stats import ga
+from scipy.stats import gamma
 import matplotlib.pyplot as plt
 
 class nem:
@@ -287,14 +287,21 @@ class nemcmc:
         plt.show()
 
 class JointNEMCMC:
-    def __init__(self, nem_list: List[nem], init_list: List[np.ndarray], init_meta: np.ndarray, n: 1e5, burn_in: int = 1e4, 
-                 sigma: float = 10):
+    def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray], init_meta: np.ndarray, init_nus: List[float],
+                 n: 1e5, burn_in: int = 1e4, sigma: float = 10, shape: float = 1, rate: float = 2):
+        self._sigma = sigma
+        self._shape = shape
+        self._rate = rate
         self._K = len(nem_list)
         self._nactions = nem_list[0]._nactions
         #The next line copies each of the inputs and adds a null action column to each
-        self._curr_list = [np.c_[init, np.zeros((init.shape[0],1))] for init in init_list]
+        self._curr_graphs = [np.c_[init, np.zeros((init.shape[0],1))] for init in init_graphs]
         self._curr_meta = init_meta.copy()
-        for c in self._curr_list:
+        if init_nus is None:
+            self._curr_nus = np.random.gamma(shape=self._shape, scale=1/self._rate, size=self._K)
+        else:
+            self._curr_nus = init_nus.copy()
+        for c in self._curr_graphs:
             np.fill_diagonal(c, 0)
         np.fill_diagonal(self._curr_meta, 0)
         self._n = n
@@ -308,16 +315,16 @@ class JointNEMCMC:
         self._parents_meta = defaultdict(set)
         self._children_meta = defaultdict(set)
 
-        self._out_list = [np.zeros(self._curr_meta.shape) for k in range(self._K)]
+        self._out_graphs = [np.zeros(self._curr_meta.shape) for k in range(self._K)]
         self._out_meta = np.zeros(self._curr_meta.shape)
-        self._nu_list = [[] for k in range(self._K)] ### NEED TO INITIALISE THIS PROPERLY
+        self._out_nus = [[] for k in range(self._K)] ### NEED TO INITIALISE THIS PROPERLY
 
-        self._hamming_dists = [np.abs(m[:,:self._nactions]-self._curr_meta).sum() for m in self._curr_list]
+        self._hamming_dists = [np.abs(m[:,:self._nactions]-self._curr_meta).sum() for m in self._curr_graphs]
 
         for k in range(self._K):
             for i in range(self._nactions):
-                self._children_list[k][i] = set(self._curr_list[k][i].nonzero()[0])
-                self._parents_list[k][i] = set(self._curr_list[k].T[i].nonzero()[0])
+                self._children_list[k][i] = set(self._curr_graphs[k][i].nonzero()[0])
+                self._parents_list[k][i] = set(self._curr_graphs[k].T[i].nonzero()[0])
         
         for i in range(self._nactions):
             self._children_meta[i] = set(self._curr_meta[i].nonzero()[0])
@@ -342,7 +349,8 @@ class JointNEMCMC:
                 if self.can_delete_meta(i,j):
                     self._neighbours_meta.add((i,j,0))
         
-        curr_post_list = [nem_list[k]._logmarginalposterior(self._curr_list[k])-self._nu_list[k]*self._hamming_dists[k] for k in range(self._K)]
+        curr_graph_posts = [nem_list[k]._logmarginalposterior(self._curr_graphs[k])-self._curr_nus[k]*self._hamming_dists[k] for k in range(self._K)]
+        curr_nu_probs = [self.nu_laplace(self._curr_nus[k], k)+self.nu_gamma(self._curr_nus[k],k) for k in self._K]
         i = 0
         while i < self._n:
             #Proposals for graphs
@@ -350,32 +358,45 @@ class JointNEMCMC:
                 neigh_list = list(self._neighbours_list[k])
                 change = neigh_list[np.random.choice(range(len(neigh_list)))]
                 unif = np.random.uniform()
-                proposal = self._curr_list[k].copy()
+                proposal = self._curr_graphs[k].copy()
                 proposal[change[0], change[1]] = change[2]
                 if proposal[change[0], change[1]] == self._meta[change[0], change[1]]:
                     prop_hamming = self._hamming_dists[k] - 1
                 else:
                     prop_hamming = self._hamming_dists[k] + 1
-                prop_post = nem_list[k]._logmarginalposterior(proposal) - self._nu_list[k]*prop_hamming
-                if unif <= min(1, np.exp(prop_post - curr_post_list[k])):
-                    curr_post_list[k] = prop_post
-                    self._curr_list[k] = proposal
+                prop_post = nem_list[k]._logmarginalposterior(proposal) - self._curr_nus[k]*prop_hamming
+                if unif <= min(1, np.exp(prop_post - curr_graph_posts[k])):
+                    curr_graph_posts[k] = prop_post
+                    curr_nu_probs[k] += self._curr_nus[k]*self._hamming_dists[k]
+                    curr_nu_probs[k] -= self._curr_nus[k]*prop_hamming
+                    self._curr_graphs[k] = proposal
                     self._hamming_dists[k] = prop_hamming
                     self.update_current(change, k)
                 if i >= self._burn_in:
-                    self._out_list[k] += self._curr_list[k][:,:self._nactions]
+                    self._out_graphs[k] += self._curr_graphs[k][:,:self._nactions]
             
             #Proposals for nu parameters
             for k in range(self._K):
                 unif = np.random.uniform()
-                proposal = np.exp(np.random.normal(np.log(self._nu_list[k]), sigma))
-
+                proposal = np.exp(np.random.normal(np.log(self._curr_nus[k]), self._sigma))
+                prop_prob = self.nu_laplace(proposal,k) + self.nu_gamma(proposal,k)
+                if unif <= min(1, np.exp(prop_prob - curr_nu_probs[k])):
+                    curr_nu_probs = prop_prob
+                    curr_graph_posts[k] += self._curr_nus[k]*self._hamming_dists[k]
+                    curr_graph_posts[k] -= proposal*self._hamming_dists[k]
+                    self._curr_nus[k] = proposal
+                if i>= self._burn_in:
+                    self._out_nus[k].append(self._curr_nus[k])
+            
+            
 
             i += 1
 
-    def nu_laplace_ratio(self, proposal, k):
-        return self._nactions*(self._nactions - 1)*(np.log(1+np.exp(-1*self._nu_list[k]))-np.log(1+np.exp(-1*proposal)))+\
-        self._hamming_dists[k]*(self._nu_list[k]-proposal)
+    def nu_laplace(self, nu, k):
+        return -1*nu*self._hamming_dists[k]-self._nactions*(self._nactions-1)*np.log(1+np.exp(-1*nu))
+    
+    def nu_gamma(self,nu,k):
+        return gamma.logpdf(nu,a = self._shape, scale = 1/self._rate) + nu
     
     def update_current(self, change: tuple, k: int):
         self._neighbours_list[k].discard(change)
@@ -411,7 +432,7 @@ class JointNEMCMC:
                 self._neighbours_list[k].discard((j,node,0))    
 
     def can_insert(self, i: int, j: int, k: int):
-        return not self._curr_list[k][i,j] and not self._curr_list[k][j,i] and \
+        return not self._curr_graphs[k][i,j] and not self._curr_graphs[k][j,i] and \
                 self._parents_list[k][i].issubset(self._parents_list[k][j]) and \
                     self._children_list[k][j].issubset(self._children_list[k][i])
     
@@ -420,7 +441,7 @@ class JointNEMCMC:
             self._parents_meta[i].issubset(self._parents_meta[j]) and self._children_meta[j].issubset(self._children_meta[i])
     
     def can_delete(self, i: int, j: int, k: int):
-        return self._curr_list[k][i,j] and len(self._children_list[k][i].intersection(self._parents_list[k][j])) == 0
+        return self._curr_graphs[k][i,j] and len(self._children_list[k][i].intersection(self._parents_list[k][j])) == 0
     
     def can_delete_meta(self, i: int, j: int):
         return self._curr_meta[i,j] and len(self._children_meta[i].intersection(self._parents_meta[j])) == 0
