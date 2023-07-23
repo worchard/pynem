@@ -217,7 +217,7 @@ class nemcmc:
             self._arratio.append(accepts/(i+1))
             self._avg_nedges.append((self._avg_nedges[i]*(i+1) + nedges)/(i+2))
             if i >= self._burn_in:
-                self._out += self._curr[:, :nem._nactions]
+                self._out += self._curr[:, :self._nactions]
             i += 1
         
         self._out /= (self._n - self._burn_in)
@@ -288,12 +288,22 @@ class nemcmc:
 
 class JointNEMCMC:
     def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray], init_meta: np.ndarray, init_nus: List[float],
-                 n: 1e5, burn_in: int = 1e4, sigma: float = 10, shape: float = 1, rate: float = 2):
+                 n: 1e5, burn_in: int = 1e4, meta_prior: np.ndarray = None, lambda_reg: float = 0, sigma: float = 10, 
+                 shape: float = 1, rate: float = 2):
         self._sigma = sigma
         self._shape = shape
         self._rate = rate
         self._K = len(nem_list)
         self._nactions = nem_list[0]._nactions
+        if meta_prior is None:
+            if self._lambda_reg > 0:
+                self._meta_prior = np.eye(self.nactions)
+            else:
+                self._meta_prior = None
+        elif meta_prior.shape[0] == self._nactions and meta_prior.shape[1] == meta_prior.shape[0]:
+            self._meta_prior = meta_prior.copy()
+        else:
+            raise ValueError("Dimensions of meta_prior don't match input NEMs!")
         #The next line copies each of the inputs and adds a null action column to each
         self._curr_graphs = [np.c_[init, np.zeros((init.shape[0],1))] for init in init_graphs]
         self._curr_meta = init_meta.copy()
@@ -317,7 +327,7 @@ class JointNEMCMC:
 
         self._out_graphs = [np.zeros(self._curr_meta.shape) for k in range(self._K)]
         self._out_meta = np.zeros(self._curr_meta.shape)
-        self._out_nus = [[] for k in range(self._K)] ### NEED TO INITIALISE THIS PROPERLY
+        self._out_nus = [[] for k in range(self._K)]
 
         self._hamming_dists = [np.abs(m[:,:self._nactions]-self._curr_meta).sum() for m in self._curr_graphs]
 
@@ -350,7 +360,13 @@ class JointNEMCMC:
                     self._neighbours_meta.add((i,j,0))
         
         curr_graph_posts = [nem_list[k]._logmarginalposterior(self._curr_graphs[k])-self._curr_nus[k]*self._hamming_dists[k] for k in range(self._K)]
-        curr_nu_probs = [self.nu_laplace(self._curr_nus[k], k)+self.nu_gamma(self._curr_nus[k],k) for k in self._K]
+        curr_nu_probs = [self.nu_laplace(self._curr_nus[k], self._hamming_dists[k])+self.nu_gamma(self._curr_nus[k]) for k in self._K]
+        curr_meta_prob = 0
+        for k in range(self._K):
+            curr_meta_prob += self.laplace(self._curr_nus[k], self._hamming_dists[k])
+        if self._meta_prior:
+            curr_meta_prob += self.compute_meta_prior(self._curr_meta)
+
         i = 0
         while i < self._n:
             #Proposals for graphs
@@ -379,7 +395,7 @@ class JointNEMCMC:
             for k in range(self._K):
                 unif = np.random.uniform()
                 proposal = np.exp(np.random.normal(np.log(self._curr_nus[k]), self._sigma))
-                prop_prob = self.nu_laplace(proposal,k) + self.nu_gamma(proposal,k)
+                prop_prob = self.laplace(proposal,self._hamming_dists[k]) + self.nu_gamma(proposal)
                 if unif <= min(1, np.exp(prop_prob - curr_nu_probs[k])):
                     curr_nu_probs = prop_prob
                     curr_graph_posts[k] += self._curr_nus[k]*self._hamming_dists[k]
@@ -388,14 +404,49 @@ class JointNEMCMC:
                 if i>= self._burn_in:
                     self._out_nus[k].append(self._curr_nus[k])
             
-            
-
+            neigh_list = list(self._neighbours_meta)
+            change = neigh_list[np.random.choice(range(len(neigh_list)))]
+            unif = np.random.uniform()
+            proposal = self._curr_meta.copy()
+            proposal[change[0], change[1]] = change[2]
+            prop_hamming_dists = []
+            prop_prob = 0
+            for k in range(self._K):
+                if proposal[change[0], change[1]] == self._curr_graphs[k]:
+                    prop_hamming_dists.append(self._hamming_dists[k]-1)
+                else:
+                    prop_hamming_dists.append(self._hamming_dists[k]+1)
+                prop_prob += self.laplace(self._curr_nus[k], prop_hamming_dists[k])
+            if self._meta_prior:
+                prop_prob += self.compute_meta_prior(self._curr_meta)
+            if unif <= min(1,np.exp(prop_prob-curr_meta_prob)):
+                curr_meta_prob = prop_prob
+                self._curr_meta = proposal
+                for k in range(self._K):
+                    self._curr_graph_posts[k] + self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming_dists[k])
+                    self._curr_nu_probs[k] + self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming_dists[k])
+                self._hamming_dists = prop_hamming_dists
+                self.update_current_meta(change)
+            if i >= self._burn_in:
+                self._out_meta += self._curr_meta[:,:self._nactions]
             i += 1
 
-    def nu_laplace(self, nu, k):
-        return -1*nu*self._hamming_dists[k]-self._nactions*(self._nactions-1)*np.log(1+np.exp(-1*nu))
+    def _phi_distr(self, model: np.ndarray, a=1, b=0.1):
+        d = np.abs(model - self._meta_prior)
+        pPhi = a/(2*b)*(1 + d/b)**(-a-1)
+        return np.sum(np.log(pPhi))
     
-    def nu_gamma(self,nu,k):
+    def compute_meta_prior(self, model: np.ndarray):
+        if self._lambda_reg != 0:
+            return -self._lambda_reg*np.sum(np.abs(model - self._meta_prior)) + \
+                np.log(self._lambda_reg*0.5)*2**self._nactions
+        else:
+            return self._phi_distr(model)
+    
+    def laplace(self, nu, hamming_dist):
+        return -1*nu*hamming_dist-self._nactions*(self._nactions-1)*np.log(1+np.exp(-1*nu))
+    
+    def nu_gamma(self,nu):
         return gamma.logpdf(nu,a = self._shape, scale = 1/self._rate) + nu
     
     def update_current(self, change: tuple, k: int):
@@ -429,7 +480,40 @@ class JointNEMCMC:
             if self.can_delete(j,node,k):
                 self._neighbours_list[k].add((j,node,0))
             else:
-                self._neighbours_list[k].discard((j,node,0))    
+                self._neighbours_list[k].discard((j,node,0))
+    
+    def update_current_meta(self, change: tuple):
+        self._neighbours_meta.discard(change)
+        i, j, t = change
+        if t == 1:
+            self._children_meta[i].add(j)
+            self._parents_meta[j].add(i)
+        else:
+            self._children_meta[i].remove(j)
+            self._parents_meta[j].remove(i)
+        self.do_checks_meta(i)
+        self.do_checks_meta(j)
+
+    def do_checks_meta(self, node: int):
+        for j in range(self._nactions):
+            if j == node:
+                continue
+            if self.can_insert_meta(node,j):
+                self._neighbours_meta.add((node,j,1))
+            else:
+                self._neighbours_meta.discard((node,j,1))
+            if self.can_insert_meta(j,node):
+                self._neighbours_meta.add((j,node,1))
+            else:
+                self._neighbours_meta.discard((j,node,1))
+            if self.can_delete_meta(node,j):
+                self._neighbours_meta.add((node,j,0))
+            else:
+                self._neighbours_meta.discard((node,j,0))
+            if self.can_delete_meta(j,node):
+                self._neighbours_meta.add((j,node,0))
+            else:
+                self._neighbours_meta.discard((j,node,0)) 
 
     def can_insert(self, i: int, j: int, k: int):
         return not self._curr_graphs[k][i,j] and not self._curr_graphs[k][j,i] and \
@@ -731,7 +815,7 @@ class NestedEffectsModel(ExtendedGraph):
 
     def _add_null_action(self):
         if self._attachments_prior is None:
-            ValueError("Provide an attachments_prior first or else run nem._assign_priors")
+            raise ValueError("Provide an attachments_prior first or else run nem._assign_priors")
         if self._attachments_prior.shape[1] == self.nactions + 1:
             return
         self._attachments_prior = np.c_[self._attachments_prior, np.full(self.neffects, 1/self.nactions)]
