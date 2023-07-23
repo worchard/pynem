@@ -383,8 +383,8 @@ class JointNEMCMC:
                 prop_post = nem_list[k]._logmarginalposterior(proposal) - self._curr_nus[k]*prop_hamming
                 if unif <= min(1, np.exp(prop_post - curr_graph_posts[k])):
                     curr_graph_posts[k] = prop_post
-                    curr_nu_probs[k] += self._curr_nus[k]*self._hamming_dists[k]
-                    curr_nu_probs[k] -= self._curr_nus[k]*prop_hamming
+                    curr_nu_probs[k] += self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming)
+                    curr_meta_prob += self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming)
                     self._curr_graphs[k] = proposal
                     self._hamming_dists[k] = prop_hamming
                     self.update_current(change, k)
@@ -398,8 +398,9 @@ class JointNEMCMC:
                 prop_prob = self.laplace(proposal,self._hamming_dists[k]) + self.nu_gamma(proposal)
                 if unif <= min(1, np.exp(prop_prob - curr_nu_probs[k])):
                     curr_nu_probs = prop_prob
-                    curr_graph_posts[k] += self._curr_nus[k]*self._hamming_dists[k]
-                    curr_graph_posts[k] -= proposal*self._hamming_dists[k]
+                    curr_graph_posts[k] += self._hamming_dists[k]*(self._curr_nus[k] - proposal)
+                    curr_meta_prob -= self.laplace(self._curr_nus[k], self._hamming_dists[k])
+                    curr_meta_prob += self.laplace(proposal, self._hamming_dists[k])
                     self._curr_nus[k] = proposal
                 if i>= self._burn_in:
                     self._out_nus[k].append(self._curr_nus[k])
@@ -423,13 +424,19 @@ class JointNEMCMC:
                 curr_meta_prob = prop_prob
                 self._curr_meta = proposal
                 for k in range(self._K):
-                    self._curr_graph_posts[k] + self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming_dists[k])
-                    self._curr_nu_probs[k] + self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming_dists[k])
+                    self._curr_graph_posts[k] += self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming_dists[k])
+                    self._curr_nu_probs[k] += self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming_dists[k])
                 self._hamming_dists = prop_hamming_dists
                 self.update_current_meta(change)
             if i >= self._burn_in:
                 self._out_meta += self._curr_meta[:,:self._nactions]
             i += 1
+        
+        for k in range(self._K):
+            self._out_graphs[k] /= (self._n - self._burn_in)
+            np.fill_diagonal(self._out_graphs[k], 1)
+        self._out_meta /= (self._n - self._burn_in)
+        np.fill_diagonal(self._out_meta, 1)
 
     def _phi_distr(self, model: np.ndarray, a=1, b=0.1):
         d = np.abs(model - self._meta_prior)
