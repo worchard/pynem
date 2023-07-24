@@ -287,8 +287,8 @@ class nemcmc:
         plt.show()
 
 class JointNEMCMC:
-    def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray], init_meta: np.ndarray, init_nus: List[float],
-                 n: 1e5, burn_in: int = 1e4, meta_prior: np.ndarray = None, lambda_reg: float = 0, sigma: float = 10, 
+    def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray] = None, init_meta: np.ndarray = None, init_nus: List[float] = None,
+                 n: int = 1e5, burn_in: int = 1e4, meta_prior: np.ndarray = None, lambda_reg: float = 0, sigma: float = 10, 
                  shape: float = 1, rate: float = 2):
         self._sigma = sigma
         self._shape = shape
@@ -305,8 +305,14 @@ class JointNEMCMC:
         else:
             raise ValueError("Dimensions of meta_prior don't match input NEMs!")
         #The next line copies each of the inputs and adds a null action column to each
-        self._curr_graphs = [np.c_[init, np.zeros((init.shape[0],1))] for init in init_graphs]
-        self._curr_meta = init_meta.copy()
+        if init_graphs is None:
+            self._curr_graphs = [np.zeros(self._nactions,self._nactions+1) for k in self._K]
+        else:
+            self._curr_graphs = [np.c_[init, np.zeros((init.shape[0],1))] for init in init_graphs]
+        if init_meta is None:
+            self._curr_meta = np.zeros((self._nactions, self._nactions))
+        else:
+            self._curr_meta = init_meta.copy()
         if init_nus is None:
             self._curr_nus = np.random.gamma(shape=self._shape, scale=1/self._rate, size=self._K)
         else:
