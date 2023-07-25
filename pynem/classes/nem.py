@@ -289,13 +289,16 @@ class nemcmc:
 class JointNEMCMC:
     def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray] = None, init_meta: np.ndarray = None, init_nus: List[float] = None,
                  n: int = 1e5, burn_in: int = 1e4, meta_prior: np.ndarray = None, lambda_reg: float = 0, sigma: float = 10, 
-                 shape: float = 1, rate: float = 2):
+                 shape: float = 1, rate: float = 2, compare: List[Tuple[int,int]] = None):
         self._sigma = sigma
         self._shape = shape
         self._rate = rate
         self._lambda_reg = lambda_reg
         self._K = len(nem_list)
         self._nactions = nem_list[0]._nactions
+        self._compare = None
+        if compare is not None:
+            self._compare = compare.copy()
         if meta_prior is None:
             if self._lambda_reg > 0:
                 self._meta_prior = np.eye(self.nactions)
@@ -335,6 +338,9 @@ class JointNEMCMC:
         self._out_graphs = [np.zeros(self._curr_meta.shape) for k in range(self._K)]
         self._out_meta = np.zeros(self._curr_meta.shape)
         self._out_nus = [[] for k in range(self._K)]
+        self._out_comparisons = None
+        if self._compare is not None:
+            self._out_comparisons = [np.zeros(self._curr_meta.shape) for i in range(len(self._compare))]
 
         self._hamming_dists = [np.abs(m[:,:self._nactions]-self._curr_meta).sum() for m in self._curr_graphs]
 
@@ -418,6 +424,13 @@ class JointNEMCMC:
                 if i >= self._burn_in:
                     self._out_graphs[k] += self._curr_graphs[k][:,:self._nactions]
             
+            if i >= self._burn_in:
+                if self._compare is not None:
+                        for j in range(len(self._compare)):
+                            g1, g2 = self._compare[j]
+                            self._out_comparisons[j] += np.abs(self._curr_graphs[g1][:,:self._nactions]\
+                                                               -self._curr_graphs[g2][:,:self._nactions])
+
             #Proposals for nu parameters
             for k in range(self._K):
                 unif = np.random.uniform()
@@ -466,6 +479,7 @@ class JointNEMCMC:
             self._avg_nedges_meta.append((self._avg_nedges_meta[i]*(i+1) + nedges_meta)/(i+2))
             if i >= self._burn_in:
                 self._out_meta += self._curr_meta[:,:self._nactions]
+
             i += 1
         
         for k in range(self._K):
@@ -473,6 +487,10 @@ class JointNEMCMC:
             np.fill_diagonal(self._out_graphs[k], 1)
         self._out_meta /= (self._n - self._burn_in)
         np.fill_diagonal(self._out_meta, 1)
+        
+        if self._compare is not None:
+            for i in range(len(self._compare)):
+                self._out_comparisons[i] /= (self._n - self._burn_in)
 
     def _phi_distr(self, model: np.ndarray, a=1, b=0.1):
         d = np.abs(model - self._meta_prior)
