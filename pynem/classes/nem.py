@@ -54,7 +54,7 @@ class nem:
                         raise ValueError("Not all provided actions found in col_data!")
                 else:
                     _, idx = np.unique(self._col_data, return_index=True)
-                    actions = self._col_data[idx]
+                    actions = self._col_data[np.sort(idx)]
             else:
                 if actions.size > 0:
                     if not self._data.shape[1] == actions.size:
@@ -284,6 +284,24 @@ class nemcmc:
         axs[1].set_ylabel('Moving average number of edges')
 
         plt.tight_layout()
+        plt.show()
+    
+    def heatmap(self, data: np.ndarray, row_labels: list = None, col_labels: list = None):
+        if row_labels is None:
+            row_labels = col_labels
+        if col_labels is None:
+            col_labels = row_labels
+
+        ax = plt.gca()
+
+        # Plot the heatmap
+        sns.heatmap(data, annot=True, cmap='viridis', fmt='.2f', cbar=True, ax=ax)
+
+        # Set row and column labels
+        if row_labels and col_labels:
+            ax.set_xticklabels(col_labels, rotation=45, ha='right')
+            ax.set_yticklabels(row_labels, rotation=0, ha='right')
+
         plt.show()
 
 class JointNEMCMC:
@@ -679,6 +697,24 @@ class JointNEMCMC:
 
         plt.tight_layout()
         plt.show()
+    
+    def heatmap(self, data: np.ndarray, row_labels: list = None, col_labels: list = None):
+        if row_labels is None:
+            row_labels = col_labels
+        if col_labels is None:
+            col_labels = row_labels
+
+        ax = plt.gca()
+
+        # Plot the heatmap
+        sns.heatmap(data, annot=True, cmap='viridis', fmt='.2f', cbar=True, ax=ax)
+
+        # Set row and column labels
+        if row_labels and col_labels:
+            ax.set_xticklabels(col_labels, rotation=45, ha='right')
+            ax.set_yticklabels(row_labels, rotation=0, ha='right')
+
+        plt.show()
 
 class NestedEffectsModel(ExtendedGraph):
     """
@@ -751,7 +787,7 @@ class NestedEffectsModel(ExtendedGraph):
                             raise ValueError("Not all provided actions found in col_data!")
                     else:
                         _, idx = np.unique(self._col_data, return_index=True)
-                        actions = self._col_data[idx]
+                        actions = self._col_data[np.sort(idx)]
                 else:
                     if actions.size > 0:
                         if not self._data.shape[1] == actions.size:
