@@ -12,6 +12,7 @@ import numpy as np
 from scipy.special import logsumexp
 from scipy.stats import gamma
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 class nem:
     def __init__(self, data: np.ndarray = np.array([]), col_data: list = list(), row_data: list = list(),
@@ -176,8 +177,7 @@ class nemcmc:
         self._out = np.zeros(self._curr.shape)
         self._arratio = []
         nedges = self._curr.sum()
-        self._avg_nedges = []
-        self._avg_nedges.append(nedges)
+        self._avg_nedges = [nedges]
 
         for i in range(self._curr.shape[0]):
             self._children[i] = set(self._curr[i].nonzero()[0])
@@ -273,12 +273,12 @@ class nemcmc:
         x = np.arange(up_to)
         fig, axs = plt.subplots(1,2)
 
-        axs[0].plot(x, self._arratio[:up_to+1])
+        axs[0].plot(x, self._arratio[:up_to])
         axs[0].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5, linewidth=0)
         axs[0].set_xlabel('Iteration number')
         axs[0].set_ylabel('Accept/reject ratio')
 
-        axs[1].plot(x,self._avg_nedges[1:up_to+1])
+        axs[1].plot(x,self._avg_nedges[1:up_to])
         axs[1].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5, linewidth=0)
         axs[1].set_xlabel('Iteration number')
         axs[1].set_ylabel('Moving average number of edges')
@@ -321,8 +321,8 @@ class JointNEMCMC:
         for c in self._curr_graphs:
             np.fill_diagonal(c, 0)
         np.fill_diagonal(self._curr_meta, 0)
-        self._n = n
-        self._burn_in = burn_in
+        self._n = int(n)
+        self._burn_in = int(burn_in)
 
         self._neighbours_list = [set() for k in range(self._K)]
         self._parents_list = [defaultdict(set) for k in range(self._K)]
@@ -374,6 +374,19 @@ class JointNEMCMC:
         if self._meta_prior:
             curr_meta_prob += self.compute_meta_prior(self._curr_meta)
 
+        self._graph_arratios = [[] for k in range(self._K)]
+        self._nu_arratios = [[] for k in range(self._K)]
+        self._meta_arratio = []
+
+        nedges_graphs = [self._curr_graphs[k].sum() for k in range(self._K)]
+        nedges_meta = self._curr_meta.sum()
+        self._avg_nedges_graphs = [[nedges_graphs[k]] for k in range(self._K)]
+        self._avg_nedges_meta = [nedges_meta]
+
+        graph_accepts = [0 for k in range(self._K)]
+        nu_accepts = [0 for k in range(self._K)]
+        meta_accepts = 0
+
         i = 0
         while i < self._n:
             #Proposals for graphs
@@ -395,6 +408,13 @@ class JointNEMCMC:
                     self._curr_graphs[k] = proposal
                     self._hamming_dists[k] = prop_hamming
                     self.update_current(change, k)
+                    graph_accepts[k] += 1
+                    if change[2] == 1:
+                        nedges_graphs[k] += 1
+                    else:
+                        nedges_graphs[k] -= 1
+                self._graph_arratios[k].append(graph_accepts[k]/(i+1))
+                self._avg_nedges_graphs[k].append((self._avg_nedges_graphs[k][i]*(i+1) + nedges_graphs[k])/(i+2))
                 if i >= self._burn_in:
                     self._out_graphs[k] += self._curr_graphs[k][:,:self._nactions]
             
@@ -409,6 +429,8 @@ class JointNEMCMC:
                     curr_meta_prob -= self.laplace(self._curr_nus[k], self._hamming_dists[k])
                     curr_meta_prob += self.laplace(proposal, self._hamming_dists[k])
                     self._curr_nus[k] = proposal
+                    nu_accepts[k] += 1
+                self._nu_arratios[k].append(nu_accepts[k]/(i+1))
                 if i>= self._burn_in:
                     self._out_nus[k].append(self._curr_nus[k])
             
@@ -435,6 +457,13 @@ class JointNEMCMC:
                     curr_nu_probs[k] += self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming_dists[k])
                 self._hamming_dists = prop_hamming_dists
                 self.update_current_meta(change)
+                meta_accepts += 1
+                if change[2] == 1:
+                    nedges_meta += 1
+                else:
+                    nedges_meta -= 1
+            self._meta_arratio.append(meta_accepts/(i+1))
+            self._avg_nedges_meta.append((self._avg_nedges_meta[i]*(i+1) + nedges_meta)/(i+2))
             if i >= self._burn_in:
                 self._out_meta += self._curr_meta[:,:self._nactions]
             i += 1
@@ -544,6 +573,95 @@ class JointNEMCMC:
     def can_delete_meta(self, i: int, j: int):
         return self._curr_meta[i,j] and len(self._children_meta[i].intersection(self._parents_meta[j])) == 0
     
+    def nu_trace_plots(self, start: int = 0, end: int = None):
+        if end is None:
+            end = len(self._out_nus[0])
+        end = min(len(self._out_nus[0]),end)
+        x = np.arange(start,end)
+        fig, axs = plt.subplots(1,self._K)
+
+        for k in range(self._K):
+            axs[k].plot(x,self._out_nus[k][start:end])
+            axs[k].set_xlabel('Iteration number')
+            axs[k].set_ylabel(f'nu {k}')
+        
+        plt.tight_layout()
+        plt.show()
+    
+    def nu_density_plots(self, start: int = 0, end: int = None):
+        if end is None:
+            end = len(self._out_nus[0])
+        end = min(len(self._out_nus[0]),end)
+
+        for k in range(self._K):
+            sns.kdeplot(self._out_nus[k][start:end],fill=True,label=f'nu {k}')
+        
+        plt.xlabel('nu')
+        plt.legend()
+        plt.show()
+
+    def graph_ar_plots(self, start: int = 0, end: int = None):
+        if end is None:
+            end = self._n
+        end = min(self._n,end)
+        x = np.arange(start,end)
+        fig, axs = plt.subplots(1,self._K+1)
+
+        for k in range(self._K):
+            axs[k].plot(x,self._graph_arratios[k][start:end])
+            if end > self._burn_in:
+                axs[k].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+                axs[k].set_xlabel('Iteration number')
+                axs[k].set_ylabel(f'Accept/reject ratio for graph {k}')
+        
+        axs[self._K].plot(x,self._meta_arratio[start:end])
+        if end > self._burn_in:
+            axs[self._K].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+            axs[self._K].set_xlabel('Iteration number')
+            axs[self._K].set_ylabel(f'Accept/reject ratio for meta graph')
+
+        plt.tight_layout()
+        plt.show()
+
+    def nu_ar_plots(self, start: int = 0, end: int = None):
+        if end is None:
+            end = self._n
+        end = min(self._n,end)
+        x = np.arange(start,end)
+        fig, axs = plt.subplots(1,self._K)
+
+        for k in range(self._K):
+            axs[k].plot(x,self._nu_arratios[k][start:end])
+            if end > self._burn_in:
+                axs[k].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+                axs[k].set_xlabel('Iteration number')
+                axs[k].set_ylabel(f'Accept/reject ratio for nu {k}')
+
+        plt.tight_layout()
+        plt.show()
+    
+    def average_edge_number_plots(self, start: int = 0, end: int = None):
+        if end is None:
+            end = self._n
+        end = min(self._n,end)
+        x = np.arange(start,end)
+        fig, axs = plt.subplots(1,self._K+1)
+        for k in range(self._K):
+            axs[k].plot(x,self._avg_nedges_graphs[k][start:end])
+            if end > self._burn_in:
+                axs[k].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+                axs[k].set_xlabel('Iteration number')
+                axs[k].set_ylabel(f'Moving average number of edges for graph {k}')
+        
+        axs[self._K].plot(x,self._avg_nedges_meta[start:end])
+        if end > self._burn_in:
+            axs[self._K].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+            axs[self._K].set_xlabel('Iteration number')
+            axs[self._K].set_ylabel(f'Moving average number of edges for meta graph')
+
+        plt.tight_layout()
+        plt.show()
+
 class NestedEffectsModel(ExtendedGraph):
     """
     Class uniting the data, graph and learning algorithms to facilitate scoring and learning of Nested Effects Models.
