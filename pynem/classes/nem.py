@@ -166,8 +166,8 @@ class nemcmc:
         self._nactions = nem._nactions
         self._curr = init.copy()
         np.fill_diagonal(self._curr, 0) #This is so parents/children/neighbours are computed properly below
-        self._n = n
-        self._burn_in = burn_in
+        self._n = int(n)
+        self._burn_in = int(burn_in)
         
         self._neighbours = set()
 
