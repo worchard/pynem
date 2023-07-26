@@ -278,7 +278,7 @@ class nemcmc:
         axs[0].set_xlabel('Iteration number')
         axs[0].set_ylabel('Accept/reject ratio')
 
-        axs[1].plot(x,self._avg_nedges[1:up_to])
+        axs[1].plot(x,self._avg_nedges[:up_to])
         axs[1].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5, linewidth=0)
         axs[1].set_xlabel('Iteration number')
         axs[1].set_ylabel('Moving average number of edges')
@@ -298,7 +298,7 @@ class nemcmc:
         sns.heatmap(data, annot=True, cmap='viridis', fmt='.2f', cbar=True, ax=ax)
 
         # Set row and column labels
-        if row_labels and col_labels:
+        if row_labels is not None and col_labels is not None:
             ax.set_xticklabels(col_labels, rotation=45, ha='right')
             ax.set_yticklabels(row_labels, rotation=0, ha='right')
 
@@ -710,7 +710,7 @@ class JointNEMCMC:
         sns.heatmap(data, annot=True, cmap='viridis', fmt='.2f', cbar=True, ax=ax)
 
         # Set row and column labels
-        if row_labels and col_labels:
+        if row_labels is not None and col_labels is not None:
             ax.set_xticklabels(col_labels, rotation=45, ha='right')
             ax.set_yticklabels(row_labels, rotation=0, ha='right')
 
