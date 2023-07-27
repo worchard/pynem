@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 class nem:
-    def __init__(self, data: np.ndarray = np.array([]), col_data: list = list(), row_data: list = list(),
-                 actions: list = list(), effects: list = list(),
+    def __init__(self, data: np.ndarray = np.array([]), row_data: list = list(),
+                 col_data: list = list(), actions: list = list(), effects: list = list(),
                  structure_prior: np.ndarray = None, attachments_prior: np.ndarray = None, 
                  alpha: float = 0.13, beta: float = 0.05, lambda_reg: float = 0, delta: float = 1,
                  effects_selection: str = 'regularisation'):
