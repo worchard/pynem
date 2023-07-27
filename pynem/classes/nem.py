@@ -390,6 +390,10 @@ class JointNEMCMC:
                 if self.can_delete_meta(i,j):
                     self._neighbours_meta.add((i,j,0))
         
+        for c in self._curr_graphs:
+            np.fill_diagonal(c, 1)
+        np.fill_diagonal(self._curr_meta, 1)
+        
         curr_graph_posts = [nem_list[k]._logmarginalposterior(self._curr_graphs[k])-self._curr_nus[k]*self._hamming_dists[k] for k in range(self._K)]
         curr_nu_probs = [self.laplace(self._curr_nus[k], self._hamming_dists[k])+self.nu_gamma(self._curr_nus[k]) for k in range(self._K)]
         curr_meta_prob = 0
