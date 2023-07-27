@@ -191,6 +191,8 @@ class nemcmc:
                         self._neighbours.add((i,j,1))
                 if self.can_delete(i,j):
                         self._neighbours.add((i,j,0))
+        
+        np.fill_diagonal(self._curr,1)
 
         #This line adds a null action column, currently by default
         self._curr = np.c_[self._curr, np.zeros((self._nactions, 1))]
