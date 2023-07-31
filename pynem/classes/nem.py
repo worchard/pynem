@@ -763,9 +763,7 @@ class _greedy_search:
                 if prop_score > self._curr_score:
                     curr_change = change
                     self._curr_score = prop_score
-                    self._curr[i,j] = not v
-                else:
-                    self._curr[i,j] = not v
+                self._curr[i,j] = not v
             if curr_change is not None:
                 self._curr[curr_change[0], curr_change[1]] = curr_change[2]
                 self.update_current(curr_change)
