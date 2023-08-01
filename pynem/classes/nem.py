@@ -819,7 +819,7 @@ class greedy_preorder:
         self._a = a
         self._b = b
         if init is not None:
-            out = _greedy_search(nem,self._init)
+            out = _greedy_search(nem,init)
             self._out = out._curr
             self._score = out._curr_score
         else:
