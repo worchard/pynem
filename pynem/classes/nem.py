@@ -824,6 +824,7 @@ class _greedy_search_preorder:
             self._children[i] = set(self._curr[i].nonzero()[0])
             self._parents[i] = set(self._curr.T[i].nonzero()[0])
         
+        self._actions = set(range(self._nactions))
         self._neighbours = set()
 
         for i in range(self._nactions):
@@ -860,12 +861,24 @@ class _greedy_search_preorder:
             else:
                 at_local_max = True
     
-    def can_insert(self, i:int ,j:int):
-        return not self._curr[i,j] and not self._curr[j,i] and \
+    def can_insert(self, i: Union[int,frozenset], j: Union[int,frozenset]):
+        return i not in self._parents[j] and j not in self._parents[i] and \
             self._parents[i].issubset(self._parents[j]) and self._children[j].issubset(self._children[i])
     
-    def can_delete(self, i: int, j: int):
-        return self._curr[i,j] and len(self._children[i].intersection(self._parents[j])) == 0
+    def can_delete(self, i: Union[int,frozenset], j: Union[int,frozenset]):
+        return i in self._parents[j] and len(self._children[i].intersection(self._parents[j])) == 0
+    
+    def can_join(self, i: Union[int,frozenset], j: Union[int,frozenset]):
+        return j in self._parents[i] and self._parents[i].difference({j}).issubset(self._parents[j]) and \
+            self._children[j].difference({i}).issubset(self._children[i])
+
+    def _diff_unpack(self, fset: frozenset, d: int):
+        if len(fset) > 2:
+            return fset.difference({d})
+        else:
+            for r in fset.difference({d}):
+                pass
+            return r
     
     def update_current(self, change: tuple):
         self._neighbours.discard(change)
