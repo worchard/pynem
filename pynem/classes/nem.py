@@ -722,7 +722,96 @@ class JointNEMCMC:
 
         plt.show()
 
-class _greedy_search:
+class _greedy_search_poset:
+    def __init__(self, nem: nem, init: np.ndarray):
+        self._nem = nem
+        self._nactions = nem._nactions
+        self._curr = init.copy().astype('B')
+
+        np.fill_diagonal(self._curr, 0)
+        self._parents = defaultdict(set)
+        self._children = defaultdict(set)
+        for i in range(self._curr.shape[0]):
+            self._children[i] = set(self._curr[i].nonzero()[0])
+            self._parents[i] = set(self._curr.T[i].nonzero()[0])
+        
+        self._neighbours = set()
+
+        for i in range(self._nactions):
+            for j in range(self._nactions):
+                if i == j:
+                    continue
+                if self.can_insert(i,j):
+                        self._neighbours.add((i,j,1))
+                if self.can_delete(i,j):
+                        self._neighbours.add((i,j,0))
+        
+        np.fill_diagonal(self._curr,1)
+
+        #This line adds a null action column, currently by default
+        self._curr = np.c_[self._curr, np.zeros((self._nactions, 1),dtype='B')]
+        
+        self._curr_score = nem._logmarginalposterior(self._curr)
+        curr_change = None
+        at_local_max = False
+
+        while not at_local_max:
+            for change in self._neighbours:
+                i,j,v = change
+                self._curr[i,j] = v
+                prop_score = nem._logmarginalposterior(self._curr)
+                if prop_score > self._curr_score:
+                    curr_change = change
+                    self._curr_score = prop_score
+                self._curr[i,j] = not v
+            if curr_change is not None:
+                self._curr[curr_change[0], curr_change[1]] = curr_change[2]
+                self.update_current(curr_change)
+                curr_change = None
+            else:
+                at_local_max = True
+    
+    def can_insert(self, i:int ,j:int):
+        return not self._curr[i,j] and not self._curr[j,i] and \
+            self._parents[i].issubset(self._parents[j]) and self._children[j].issubset(self._children[i])
+    
+    def can_delete(self, i: int, j: int):
+        return self._curr[i,j] and len(self._children[i].intersection(self._parents[j])) == 0
+    
+    def update_current(self, change: tuple):
+        self._neighbours.discard(change)
+        i, j, v = change
+        if v == 1:
+            self._children[i].add(j)
+            self._parents[j].add(i)
+        else:
+            self._children[i].remove(j)
+            self._parents[j].remove(i)
+        self.do_checks(i)
+        self.do_checks(j)
+
+    def do_checks(self, node: int):
+        for j in range(self._nactions):
+            if j == node:
+                continue
+            if self.can_insert(node,j):
+                self._neighbours.add((node,j,1))
+            else:
+                self._neighbours.discard((node,j,1))
+            if self.can_insert(j,node):
+                self._neighbours.add((j,node,1))
+            else:
+                self._neighbours.discard((j,node,1))
+            if self.can_delete(node,j):
+                self._neighbours.add((node,j,0))
+            else:
+                self._neighbours.discard((node,j,0))
+            if self.can_delete(j,node):
+                self._neighbours.add((j,node,0))
+            else:
+                self._neighbours.discard((j,node,0))
+
+class _greedy_search_preorder:
     def __init__(self, nem: nem, init: np.ndarray):
         self._nem = nem
         self._nactions = nem._nactions
@@ -819,7 +908,7 @@ class greedy_preorder:
         self._a = a
         self._b = b
         if init is not None:
-            out = _greedy_search(nem,init)
+            out = _greedy_search_poset(nem,init)
             self._out = out._curr
             self._score = out._curr_score
         else:
@@ -827,7 +916,7 @@ class greedy_preorder:
             for i in range(restarts):
                 edge_probability = np.random.beta(a,b)
                 init = self.generate_random_dag_transitive_closure(self._nactions,edge_probability)
-                outs.append(_greedy_search(nem,init))
+                outs.append(_greedy_search_poset(nem,init))
             best = np.argmax([o._curr_score for o in outs])
             self._out = outs[best]._curr[:,:self._nactions]
             self._score = outs[best]._curr_score
