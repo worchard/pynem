@@ -847,13 +847,17 @@ class _greedy_search_preorder:
 
         while not at_local_max:
             for change in self._neighbours:
-                i,j,v = change
+                i,j,v = change[0], change[1], change[2]
+                if isinstance(v,list):
+                    not_v = [not i for i in v]
+                else:
+                    not_v = not v
                 self._curr[i,j] = v
                 prop_score = nem._logmarginalposterior(self._curr)
                 if prop_score > self._curr_score:
                     curr_change = change
                     self._curr_score = prop_score
-                self._curr[i,j] = not v
+                self._curr[i,j] = not_v
             if curr_change is not None:
                 self._curr[curr_change[0], curr_change[1]] = curr_change[2]
                 self.update_current(curr_change)
@@ -882,18 +886,45 @@ class _greedy_search_preorder:
     
     def update_current(self, change: tuple):
         self._neighbours.discard(change)
-        i, j, v = change
-        if v == 1:
-            self._children[i].add(j)
-            self._parents[j].add(i)
+        i, j, v = change[0], change[1], change[2]
+        if isinstance(i,list):
+            i = frozenset(i)
+        if isinstance(j, list):
+            j = frozenset(j)
+        if isinstance(v,list):
+            v = v[0]
+        if len(change) == 4:
+            if v == 1:
+                self._actions.remove(i)
+                self._actions.remove(j)
+                self._actions.add(change[3])
+                self._parents[change[3]] = self._parents[j].copy()
+                self._children[change[3]] = self._children[i].copy()
+                self.do_checks(change[3])
+            if v == 0:
+                self._actions.remove(change[3])
+                self._actions.add(i)
+                self._actions.add(j)
+                self._parents[i] = self._parents[change[3]].copy()
+                self._parents[i].add(j)
+                self._children[i] = self._children[change[3]].copy()
+                self._parents[j] = self._parents[change[3]].copy()
+                self._children[j] = self._children[change[3]].copy()
+                self._children[j].add(i)
+                self.do_checks(i)
+                self.do_checks(j)
         else:
-            self._children[i].remove(j)
-            self._parents[j].remove(i)
-        self.do_checks(i)
-        self.do_checks(j)
+            if v == 1:
+                self._children[i].add(j)
+                self._parents[j].add(i)
+            else:
+                self._children[i].remove(j)
+                self._parents[j].remove(i)
+            self.do_checks(i)
+            self.do_checks(j)
 
-    def do_checks(self, node: int):
-        for j in range(self._nactions):
+    def do_checks(self, node: Union[int, frozenset]):
+        for j in self._actions:
             if j == node:
                 continue
             if self.can_insert(node,j):
