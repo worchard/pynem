@@ -818,23 +818,27 @@ class _greedy_search_preorder:
         self._curr = init.copy().astype('B')
 
         np.fill_diagonal(self._curr, 0)
+        self._actions = {frozenset(a) for a in range(self._nactions)}
         self._parents = defaultdict(set)
         self._children = defaultdict(set)
-        for i in range(self._curr.shape[0]):
-            self._children[i] = set(self._curr[i].nonzero()[0])
-            self._parents[i] = set(self._curr.T[i].nonzero()[0])
+        for i in self._actions:
+            self._children[i] = {frozenset(c) for c in self._curr[i].nonzero()[0]}
+            self._parents[i] = {frozenset(p) for p in self._curr.T[i].nonzero()[0]}
         
-        self._actions = set(range(self._nactions))
         self._neighbours = set()
 
-        for i in range(self._nactions):
-            for j in range(self._nactions):
+        for i in self._actions:
+            for j in self._actions:
                 if i == j:
                     continue
                 if self.can_insert(i,j):
                         self._neighbours.add((i,j,1))
                 if self.can_delete(i,j):
                         self._neighbours.add((i,j,0))
+                if self.can_join(i,j):
+                        self._neighbours.add((i,j,1,'j'))
+                #Note here I do NOT check for node splits! This means that an initialisation 
+                #cannot have joined nodes. This is a feature I will need to add in the future.
         
         np.fill_diagonal(self._curr,1)
 
@@ -843,25 +847,42 @@ class _greedy_search_preorder:
         
         self._curr_score = nem._logmarginalposterior(self._curr)
         curr_change = None
+        curr_change_lists = None
         at_local_max = False
 
         while not at_local_max:
             for change in self._neighbours:
                 i,j,v = change[0], change[1], change[2]
-                if isinstance(v,list):
-                    not_v = [not i for i in v]
+                if isinstance(i, frozenset) and isinstance(j, frozenset):
+                    mult = max(len(i), len(j))
+                    v = [v]*mult
+                    not_v = [not v]*mult
+                    i = list(i)
+                    j = list(j)
+                elif isinstance(i, frozenset):
+                    mult = len(i)
+                    v = [v]*mult
+                    not_v = [not v]*mult
+                    i = list(i)
+                elif isinstance(j, frozenset):
+                    mult = len(j)
+                    v = [v]*mult
+                    not_v = [not v]*mult
+                    j = list(j)
                 else:
                     not_v = not v
                 self._curr[i,j] = v
                 prop_score = nem._logmarginalposterior(self._curr)
                 if prop_score > self._curr_score:
                     curr_change = change
+                    curr_change_lists = (i,j,v)
                     self._curr_score = prop_score
                 self._curr[i,j] = not_v
             if curr_change is not None:
-                self._curr[curr_change[0], curr_change[1]] = curr_change[2]
+                self._curr[curr_change_lists[0], curr_change_lists[1]] = curr_change_lists[2]
                 self.update_current(curr_change)
                 curr_change = None
+                curr_change_lists = None
             else:
                 at_local_max = True
     
@@ -875,24 +896,10 @@ class _greedy_search_preorder:
     def can_join(self, i: Union[int,frozenset], j: Union[int,frozenset]):
         return j in self._parents[i] and self._parents[i].difference({j}).issubset(self._parents[j]) and \
             self._children[j].difference({i}).issubset(self._children[i])
-
-    def _diff_unpack(self, fset: frozenset, d: int):
-        if len(fset) > 2:
-            return fset.difference({d})
-        else:
-            for r in fset.difference({d}):
-                pass
-            return r
     
     def update_current(self, change: tuple):
         self._neighbours.discard(change)
         i, j, v = change[0], change[1], change[2]
-        if isinstance(i,list):
-            i = frozenset(i)
-        if isinstance(j, list):
-            j = frozenset(j)
-        if isinstance(v,list):
-            v = v[0]
         if len(change) == 4:
             if v == 1:
                 self._actions.remove(i)
@@ -900,6 +907,7 @@ class _greedy_search_preorder:
                 self._actions.add(change[3])
                 self._parents[change[3]] = self._parents[j].copy()
                 self._children[change[3]] = self._children[i].copy()
+                self.remove_old_nodes(change[3])
                 self.do_checks(change[3])
             if v == 0:
                 self._actions.remove(change[3])
@@ -911,6 +919,7 @@ class _greedy_search_preorder:
                 self._parents[j] = self._parents[change[3]].copy()
                 self._children[j] = self._children[change[3]].copy()
                 self._children[j].add(i)
+                self.remove_old_nodes(i,j)
                 self.do_checks(i)
                 self.do_checks(j)
         else:
