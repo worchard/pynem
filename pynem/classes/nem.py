@@ -836,7 +836,7 @@ class _greedy_search_preorder:
                 if self.can_delete(i,j):
                         self._neighbours.add((i,j,0))
                 if self.can_join(i,j):
-                        self._neighbours.add((i,j,1,'j'))
+                        self._neighbours.add((i,j,'j'))
                 #Note here I do NOT check for node splits! This means that an initialisation 
                 #cannot have joined nodes. This is a feature I will need to add in the future.
         
@@ -853,24 +853,19 @@ class _greedy_search_preorder:
         while not at_local_max:
             for change in self._neighbours:
                 i,j,v = change[0], change[1], change[2]
-                if isinstance(i, frozenset) and isinstance(j, frozenset):
-                    mult = max(len(i), len(j))
-                    v = [v]*mult
-                    not_v = [not v]*mult
-                    i = list(i)
-                    j = list(j)
-                elif isinstance(i, frozenset):
-                    mult = len(i)
-                    v = [v]*mult
-                    not_v = [not v]*mult
-                    i = list(i)
-                elif isinstance(j, frozenset):
-                    mult = len(j)
-                    v = [v]*mult
-                    not_v = [not v]*mult
-                    j = list(j)
-                else:
-                    not_v = not v
+                if v == 'j':
+                    v = 1
+                    change[2] = frozenset.union(i,j)
+                if v == 's':
+                    v = 0
+                    change[1] = j.difference(i)
+                    change[2] = j
+                    j = change[1]
+                mult = max(len(i), len(j))
+                v = [v]*mult
+                not_v = [not v]*mult
+                i = list(i)
+                j = list(j)
                 self._curr[i,j] = v
                 prop_score = nem._logmarginalposterior(self._curr)
                 if prop_score > self._curr_score:
@@ -894,34 +889,32 @@ class _greedy_search_preorder:
         return i in self._parents[j] and len(self._children[i].intersection(self._parents[j])) == 0
     
     def can_join(self, i: Union[int,frozenset], j: Union[int,frozenset]):
-        return j in self._parents[i] and self._parents[i].difference({j}).issubset(self._parents[j]) and \
+        return (len(i) == 1 or len(j) == 1) and j in self._parents[i] and self._parents[i].difference({j}).issubset(self._parents[j]) and \
             self._children[j].difference({i}).issubset(self._children[i])
     
     def update_current(self, change: tuple):
         self._neighbours.discard(change)
         i, j, v = change[0], change[1], change[2]
-        if len(change) == 4:
-            if v == 1:
-                self._actions.remove(i)
-                self._actions.remove(j)
-                self._actions.add(change[3])
-                self._parents[change[3]] = self._parents[j].copy()
-                self._children[change[3]] = self._children[i].copy()
-                self.remove_old_nodes(change[3])
-                self.do_checks(change[3])
-            if v == 0:
-                self._actions.remove(change[3])
-                self._actions.add(i)
-                self._actions.add(j)
-                self._parents[i] = self._parents[change[3]].copy()
-                self._parents[i].add(j)
-                self._children[i] = self._children[change[3]].copy()
-                self._parents[j] = self._parents[change[3]].copy()
-                self._children[j] = self._children[change[3]].copy()
-                self._children[j].add(i)
-                self.remove_old_nodes(i,j)
-                self.do_checks(i)
-                self.do_checks(j)
+        if v == 'j':
+            self._actions.remove(i)
+            self._actions.remove(j)
+            v = frozenset.union(i,j)
+            self._actions.add(v)
+            self._parents[v] = self._parents[j].copy()
+            self._children[v] = self._children[i].copy()
+            self.do_checks(new=[v],old=[i,j])
+        elif isinstance(v,frozenset):
+            self._actions.add(i)
+            self._actions.add(j)
+            self._actions.remove(v)
+            self._parents[i] = self._parents[v].copy()
+            self._parents[i].add(j)
+            self._children[i] = self._children[v].copy()
+            self._parents[j] = self._parents[v].copy()
+            self._children[j] = self._children[v].copy()
+            self._children[j].add(i)
+            self.do_checks(new=[i,j],old=[v])
+            self.update_splits(new=[i,j],old=[v])
         else:
             if v == 1:
                 self._children[i].add(j)
@@ -929,29 +922,58 @@ class _greedy_search_preorder:
             else:
                 self._children[i].remove(j)
                 self._parents[j].remove(i)
-            self.do_checks(i)
-            self.do_checks(j)
+            self.do_checks(new=[i,j])
 
-    def do_checks(self, node: Union[int, frozenset]):
-        for j in self._actions:
-            if j == node:
+    def do_checks(self, new: list, old: list = None):
+        for node in new:
+            for j in self._actions:
+                if old is not None:
+                    for o in old:
+                        self._neighbours.discard((o,j,1))
+                        self._neighbours.discard((j,o,1))
+                        self._neighbours.discard((o,j,0))
+                        self._neighbours.discard((j,o,0))
+                        self._neighbours.discard((o,j,'j'))
+                        self._neighbours.discard((j,o,'j'))
+                if j == node:
+                    continue
+                if self.can_insert(node,j):
+                    self._neighbours.add((node,j,1))
+                else:
+                    self._neighbours.discard((node,j,1))
+                if self.can_insert(j,node):
+                    self._neighbours.add((j,node,1))
+                else:
+                    self._neighbours.discard((j,node,1))
+                if self.can_delete(node,j):
+                    self._neighbours.add((node,j,0))
+                else:
+                    self._neighbours.discard((node,j,0))
+                if self.can_delete(j,node):
+                    self._neighbours.add((j,node,0))
+                else:
+                    self._neighbours.discard((j,node,0))
+                if self.can_join(node,j):
+                    self._neighbours.add((node,j,'j'))
+                else:
+                    self._neighbours.discard((node,j,'j'))
+                if self.can_join(j,node):
+                    self._neighbours.add((j,node,'j'))
+                else:
+                    self._neighbours.discard((j,node,'j'))
+    
+    def update_splits(self, new: list, old: frozenset):
+        for i in old:
+            r = frozenset({i})
+            self._neighbours.discard((old,r,'s'))
+            self._neighbours.discard((r,old,'s'))
+        for i in new:
+            if len(i) == 1:
                 continue
-            if self.can_insert(node,j):
-                self._neighbours.add((node,j,1))
-            else:
-                self._neighbours.discard((node,j,1))
-            if self.can_insert(j,node):
-                self._neighbours.add((j,node,1))
-            else:
-                self._neighbours.discard((j,node,1))
-            if self.can_delete(node,j):
-                self._neighbours.add((node,j,0))
-            else:
-                self._neighbours.discard((node,j,0))
-            if self.can_delete(j,node):
-                self._neighbours.add((j,node,0))
-            else:
-                self._neighbours.discard((j,node,0))
+            for j in i:
+                a = frozenset({j})
+                self._neighbours.add((i,a,'s'))
+                self._neighbours.add((a,i,'s'))
 
 class greedy_preorder:
     def __init__(self, nem: nem, restarts: int = 10, a: float = 1, b: float = 1, init: np.ndarray = None):
