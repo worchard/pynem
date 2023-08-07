@@ -811,7 +811,7 @@ class _greedy_search_poset:
             else:
                 self._neighbours.discard((j,node,0))
 
-class greedy_search_preorder:
+class _greedy_search_preorder:
     def __init__(self, nem: nem, init: np.ndarray):
         self._nem = nem
         self._nactions = nem._nactions
@@ -993,7 +993,7 @@ class greedy_preorder:
         self._b = b
         if init is not None:
             if cycles:
-                out = greedy_search_preorder(nem,init)
+                out = _greedy_search_preorder(nem,init)
             else:
                 out = _greedy_search_poset(nem,init)
             self._out = out._curr[:,:self._nactions]
@@ -1004,7 +1004,7 @@ class greedy_preorder:
                 edge_probability = np.random.beta(a,b)
                 init = self.generate_random_dag_transitive_closure(self._nactions,edge_probability)
                 if cycles:
-                    out = greedy_search_preorder(nem,init)
+                    out = _greedy_search_preorder(nem,init)
                 else:
                     out = _greedy_search_poset(nem,init)
                 outs.append(out)
