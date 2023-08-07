@@ -936,6 +936,8 @@ class _greedy_search_preorder:
     def do_checks(self, new: list, old: list = None):
         for node in new:
             for j in self._actions:
+                if j == node:
+                    continue
                 if old is not None:
                     for o in old:
                         self._neighbours.discard((o,j,1))
@@ -944,8 +946,6 @@ class _greedy_search_preorder:
                         self._neighbours.discard((j,o,0))
                         self._neighbours.discard((o,j,'j'))
                         self._neighbours.discard((j,o,'j'))
-                if j == node:
-                    continue
                 if self.can_insert(node,j):
                     self._neighbours.add((node,j,1))
                 else:
