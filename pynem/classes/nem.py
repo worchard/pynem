@@ -811,19 +811,19 @@ class _greedy_search_poset:
             else:
                 self._neighbours.discard((j,node,0))
 
-class _greedy_search_preorder:
+class greedy_search_preorder:
     def __init__(self, nem: nem, init: np.ndarray):
         self._nem = nem
         self._nactions = nem._nactions
         self._curr = init.copy().astype('B')
 
         np.fill_diagonal(self._curr, 0)
-        self._actions = {frozenset(a) for a in range(self._nactions)}
+        self._actions = {frozenset({a}) for a in range(self._nactions)}
         self._parents = defaultdict(set)
         self._children = defaultdict(set)
         for i in self._actions:
-            self._children[i] = {frozenset(c) for c in self._curr[i].nonzero()[0]}
-            self._parents[i] = {frozenset(p) for p in self._curr.T[i].nonzero()[0]}
+            self._children[i] = {frozenset({c}) for c in self._curr[list(i)][0].nonzero()[0]}
+            self._parents[i] = {frozenset({p}) for p in self._curr.T[list(i)][0].nonzero()[0]}
         
         self._neighbours = set()
 
@@ -855,15 +855,12 @@ class _greedy_search_preorder:
                 i,j,v = change[0], change[1], change[2]
                 if v == 'j':
                     v = 1
-                    change[2] = frozenset.union(i,j)
                 if v == 's':
                     v = 0
-                    change[1] = j.difference(i)
-                    change[2] = j
+                    change = (i, j.difference(i), j)
                     j = change[1]
                 mult = max(len(i), len(j))
-                v = [v]*mult
-                not_v = [not v]*mult
+                v, not_v = [v]*mult, [not v]*mult
                 i = list(i)
                 j = list(j)
                 self._curr[i,j] = v
@@ -889,8 +886,8 @@ class _greedy_search_preorder:
         return i in self._parents[j] and len(self._children[i].intersection(self._parents[j])) == 0
     
     def can_join(self, i: Union[int,frozenset], j: Union[int,frozenset]):
-        return (len(i) == 1 or len(j) == 1) and j in self._parents[i] and self._parents[i].difference({j}).issubset(self._parents[j]) and \
-            self._children[j].difference({i}).issubset(self._children[i])
+        return (len(i) == 1 or len(j) == 1) and j in self._parents[i] and self._parents[i].difference(j).issubset(self._parents[j]) and \
+            self._children[j].difference(i).issubset(self._children[i])
     
     def update_current(self, change: tuple):
         self._neighbours.discard(change)
@@ -902,6 +899,14 @@ class _greedy_search_preorder:
             self._actions.add(v)
             self._parents[v] = self._parents[j].copy()
             self._children[v] = self._children[i].copy()
+            for p in self._parents[i]:
+                self._children[p].remove(i)
+            for p in self._parents[j]:
+                self._children[p].remove(j)
+            for c in self._children[i]:
+                self._parents[c].remove(i)
+            for c in self._children[j]:
+                self._parents[c].remove(j)
             self.do_checks(new=[v],old=[i,j])
         elif isinstance(v,frozenset):
             self._actions.add(i)
@@ -913,6 +918,10 @@ class _greedy_search_preorder:
             self._parents[j] = self._parents[v].copy()
             self._children[j] = self._children[v].copy()
             self._children[j].add(i)
+            for p in self._parents[v]:
+                self._children[p].remove(v)
+            for c in self._children[v]:
+                self._parents[c].remove(v)
             self.do_checks(new=[i,j],old=[v])
             self.update_splits(new=[i,j],old=[v])
         else:
@@ -976,22 +985,29 @@ class _greedy_search_preorder:
                 self._neighbours.add((a,i,'s'))
 
 class greedy_preorder:
-    def __init__(self, nem: nem, restarts: int = 10, a: float = 1, b: float = 1, init: np.ndarray = None):
+    def __init__(self, nem: nem, restarts: int = 10, a: float = 1, b: float = 1, init: np.ndarray = None, cycles: bool = True):
         self._nem = nem
         self._nactions = nem._nactions
         self._restarts = restarts
         self._a = a
         self._b = b
         if init is not None:
-            out = _greedy_search_poset(nem,init)
-            self._out = out._curr
+            if cycles:
+                out = greedy_search_preorder(nem,init)
+            else:
+                out = _greedy_search_poset(nem,init)
+            self._out = out._curr[:,:self._nactions]
             self._score = out._curr_score
         else:
             outs = []
             for i in range(restarts):
                 edge_probability = np.random.beta(a,b)
                 init = self.generate_random_dag_transitive_closure(self._nactions,edge_probability)
-                outs.append(_greedy_search_poset(nem,init))
+                if cycles:
+                    out = greedy_search_preorder(nem,init)
+                else:
+                    out = _greedy_search_poset(nem,init)
+                outs.append(out)
             best = np.argmax([o._curr_score for o in outs])
             self._out = outs[best]._curr[:,:self._nactions]
             self._score = outs[best]._curr_score
