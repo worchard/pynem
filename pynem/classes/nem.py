@@ -159,7 +159,7 @@ class nem:
             score += self._incorporate_structure_prior(model[:self._nactions, :self._nactions])
         return score
 
-class nemcmc:
+class _nemcmc_poset:
     def __init__(self, nem: nem, init: np.ndarray, n: int = 1e5, burn_in: int = 1e4):
         
         self._nem = nem
@@ -204,18 +204,18 @@ class nemcmc:
             neigh_list = list(self._neighbours)
             change = neigh_list[np.random.choice(range(len(neigh_list)))]
             unif = np.random.uniform()
-            proposal = self._curr.copy()
-            proposal[change[0], change[1]] = change[2]
-            prop_post = nem._logmarginalposterior(proposal)
+            self._curr[change[0], change[1]] = change[2]
+            prop_post = nem._logmarginalposterior(self._curr)
             if unif <= self.accept(prop_post, curr_post):
                 curr_post = prop_post
-                self._curr = proposal
                 self.update_current(change)
                 accepts += 1
                 if change[2] == 1:
                     nedges += 1
                 else:
                     nedges -= 1
+            else:
+                self._curr[change[0], change[1]] = not change[2]
             self._arratio.append(accepts/(i+1))
             self._avg_nedges.append((self._avg_nedges[i]*(i+1) + nedges)/(i+2))
             if i >= self._burn_in:
