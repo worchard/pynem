@@ -159,12 +159,15 @@ class nem:
             score += self._incorporate_structure_prior(model[:self._nactions, :self._nactions])
         return score
 
-class _nemcmc_poset:
-    def __init__(self, nem: nem, init: np.ndarray, n: int = 1e5, burn_in: int = 1e4):
+class NEMCMC_poset:
+    def __init__(self, nem: nem, init: np.ndarray = None, n: int = 1e5, burn_in: int = 1e4):
         
         self._nem = nem
         self._nactions = nem._nactions
-        self._curr = init.copy()
+        if init is not None:
+            self._curr = init.copy()
+        else:
+            self._curr = np.eye(self._nactions)
         np.fill_diagonal(self._curr, 0) #This is so parents/children/neighbours are computed properly below
         self._n = int(n)
         self._burn_in = int(burn_in)
@@ -722,7 +725,7 @@ class JointNEMCMC:
 
         plt.show()
 
-class _greedy_search_poset:
+class greedy_search_poset:
     def __init__(self, nem: nem, init: np.ndarray):
         self._nem = nem
         self._nactions = nem._nactions
@@ -811,7 +814,7 @@ class _greedy_search_poset:
             else:
                 self._neighbours.discard((j,node,0))
 
-class _greedy_search_preorder:
+class greedy_search_preorder:
     def __init__(self, nem: nem, init: np.ndarray):
         self._nem = nem
         self._nactions = nem._nactions
@@ -993,9 +996,9 @@ class greedy_preorder:
         self._b = b
         if init is not None:
             if cycles:
-                out = _greedy_search_preorder(nem,init)
+                out = greedy_search_preorder(nem,init)
             else:
-                out = _greedy_search_poset(nem,init)
+                out = greedy_search_poset(nem,init)
             self._out = out._curr[:,:self._nactions]
             self._score = out._curr_score
         else:
@@ -1004,9 +1007,9 @@ class greedy_preorder:
                 edge_probability = np.random.beta(a,b)
                 init = self.generate_random_dag_transitive_closure(self._nactions,edge_probability)
                 if cycles:
-                    out = _greedy_search_preorder(nem,init)
+                    out = greedy_search_preorder(nem,init)
                 else:
-                    out = _greedy_search_poset(nem,init)
+                    out = greedy_search_poset(nem,init)
                 outs.append(out)
             best = np.argmax([o._curr_score for o in outs])
             self._out = outs[best]._curr[:,:self._nactions]
