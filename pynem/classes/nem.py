@@ -542,6 +542,11 @@ class NEMCMC_poset:
 
         plt.show()
 
+class NEMCMC:
+    def __init__(self, nem: nem, init: np.ndarray = None, n: int = 1e5, burn_in: int = 1e4, 
+                 restarts: int = 0, random_init: bool = True, cycles: bool = True):
+        raise NotImplementedError
+
 class JointNEMCMC:
     def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray] = None, init_meta: np.ndarray = None, init_nus: List[float] = None,
                  n: int = 1e5, burn_in: int = 1e4, meta_prior: np.ndarray = None, lambda_reg: float = 0, sigma: float = 10, 
