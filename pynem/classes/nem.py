@@ -159,15 +159,248 @@ class nem:
             score += self._incorporate_structure_prior(model[:self._nactions, :self._nactions])
         return score
 
+class NEMCMC_preorder:
+    def __init__(self, nem: nem, init: np.ndarray = None, n: int = 1e5, burn_in: int = 1e4):
+        
+        self._nem = nem
+        self._nactions = nem._nactions
+        if init is not None:
+            self._curr = init.copy().astype('B')
+        else:
+            self._curr = np.eye(self._nactions, dtype = 'B')
+        np.fill_diagonal(self._curr, 0) #This is so parents/children/neighbours are computed properly below
+        self._actions = {frozenset({a}) for a in range(self._nactions)}
+        
+        self._n = int(n)
+        self._burn_in = int(burn_in)
+        
+        self._neighbours = set()
+
+        self._parents = defaultdict(set)
+        self._children = defaultdict(set)
+
+        self._out = np.zeros(self._curr.shape)
+        self._arratio = []
+        nedges = self._curr.sum()
+        self._avg_nedges = [nedges]
+
+        for i in self._actions:
+            self._children[i] = {frozenset({c}) for c in self._curr[list(i)][0].nonzero()[0]}
+            self._parents[i] = {frozenset({p}) for p in self._curr.T[list(i)][0].nonzero()[0]}
+
+        for i in self._actions:
+            for j in self._actions:
+                if i == j:
+                    continue
+                if self.can_insert(i,j):
+                        self._neighbours.add((i,j,1))
+                if self.can_delete(i,j):
+                        self._neighbours.add((i,j,0))
+                if self.can_join(i,j):
+                        self._neighbours.add((i,j,'j'))
+                #Note here I do NOT check for node splits! This means that an initialisation 
+                #cannot have joined nodes. This is a feature I will need to add in the future.
+        
+        np.fill_diagonal(self._curr,1)
+
+        #This line adds a null action column, currently by default
+        self._curr = np.c_[self._curr, np.zeros((self._nactions, 1),dtype='B')]
+        
+        curr_post = nem._logmarginalposterior(self._curr)
+        n = 0
+        accepts = 0
+        while n < self._n:
+            neigh_list = list(self._neighbours)
+            change = neigh_list[np.random.choice(range(len(neigh_list)))]
+            i,j,v = change
+            if v == 'j':
+                v = 1
+            if v == 's':
+                v = 0
+                change = (i, j.difference(i), j)
+                j = change[1]
+            mult = max(len(i), len(j))
+            v, not_v = [v]*mult, [not v]*mult
+            i = list(i)
+            j = list(j)
+            self._curr[i,j] = v
+            prop_post = nem._logmarginalposterior(self._curr)
+            unif = np.random.uniform()
+            if unif <= self.accept(prop_post, curr_post):
+                curr_post = prop_post
+                self.update_current(change)
+                accepts += 1
+                if change[2] == 1 or change[2] == 'j':
+                    nedges += len(v)
+                else:
+                    nedges -= len(v)
+            else:
+                self._curr[i,j] = not_v
+            self._arratio.append(accepts/(n+1))
+            self._avg_nedges.append((self._avg_nedges[n]*(n+1) + nedges)/(n+2))
+            if n >= self._burn_in:
+                self._out += self._curr[:, :self._nactions]
+            n += 1
+        
+        self._out /= (self._n - self._burn_in)
+        np.fill_diagonal(self._out, 1)
+
+    def update_current(self, change: tuple):
+        self._neighbours.discard(change)
+        i, j, v = change[0], change[1], change[2]
+        if v == 'j':
+            self._actions.remove(i)
+            self._actions.remove(j)
+            v = frozenset.union(i,j)
+            self._actions.add(v)
+            self._parents[v] = self._parents[j].copy()
+            self._children[v] = self._children[i].copy()
+            for p in self._parents[i]:
+                self._children[p].remove(i)
+            for p in self._parents[j]:
+                self._children[p].remove(j)
+            for c in self._children[i]:
+                self._parents[c].remove(i)
+            for c in self._children[j]:
+                self._parents[c].remove(j)
+            self.do_checks(new=[v],old=[i,j])
+        elif isinstance(v,frozenset):
+            self._actions.add(i)
+            self._actions.add(j)
+            self._actions.remove(v)
+            self._parents[i] = self._parents[v].copy()
+            self._parents[i].add(j)
+            self._children[i] = self._children[v].copy()
+            self._parents[j] = self._parents[v].copy()
+            self._children[j] = self._children[v].copy()
+            self._children[j].add(i)
+            for p in self._parents[v]:
+                self._children[p].remove(v)
+            for c in self._children[v]:
+                self._parents[c].remove(v)
+            self.do_checks(new=[i,j],old=[v])
+            self.update_splits(new=[i,j],old=[v])
+        else:
+            if v == 1:
+                self._children[i].add(j)
+                self._parents[j].add(i)
+            else:
+                self._children[i].remove(j)
+                self._parents[j].remove(i)
+            self.do_checks(new=[i,j])
+
+    def do_checks(self, new: list, old: list = None):
+        for node in new:
+            for j in self._actions:
+                if j == node:
+                    continue
+                if old is not None:
+                    for o in old:
+                        self._neighbours.discard((o,j,1))
+                        self._neighbours.discard((j,o,1))
+                        self._neighbours.discard((o,j,0))
+                        self._neighbours.discard((j,o,0))
+                        self._neighbours.discard((o,j,'j'))
+                        self._neighbours.discard((j,o,'j'))
+                if self.can_insert(node,j):
+                    self._neighbours.add((node,j,1))
+                else:
+                    self._neighbours.discard((node,j,1))
+                if self.can_insert(j,node):
+                    self._neighbours.add((j,node,1))
+                else:
+                    self._neighbours.discard((j,node,1))
+                if self.can_delete(node,j):
+                    self._neighbours.add((node,j,0))
+                else:
+                    self._neighbours.discard((node,j,0))
+                if self.can_delete(j,node):
+                    self._neighbours.add((j,node,0))
+                else:
+                    self._neighbours.discard((j,node,0))
+                if self.can_join(node,j):
+                    self._neighbours.add((node,j,'j'))
+                else:
+                    self._neighbours.discard((node,j,'j'))
+                if self.can_join(j,node):
+                    self._neighbours.add((j,node,'j'))
+                else:
+                    self._neighbours.discard((j,node,'j'))
+    
+    def update_splits(self, new: list, old: frozenset):
+        for i in old:
+            r = frozenset({i})
+            self._neighbours.discard((old,r,'s'))
+            self._neighbours.discard((r,old,'s'))
+        for i in new:
+            if len(i) == 1:
+                continue
+            for j in i:
+                a = frozenset({j})
+                self._neighbours.add((i,a,'s'))
+                self._neighbours.add((a,i,'s'))
+
+    def accept(self, proposal: float, current: float):
+        return min(1, np.exp(proposal - current))
+
+    def can_insert(self, i: Union[int,frozenset], j: Union[int,frozenset]):
+        return i not in self._parents[j] and j not in self._parents[i] and \
+            self._parents[i].issubset(self._parents[j]) and self._children[j].issubset(self._children[i])
+    
+    def can_delete(self, i: Union[int,frozenset], j: Union[int,frozenset]):
+        return i in self._parents[j] and len(self._children[i].intersection(self._parents[j])) == 0
+    
+    def can_join(self, i: Union[int,frozenset], j: Union[int,frozenset]):
+        return (len(i) == 1 or len(j) == 1) and j in self._parents[i] and self._parents[i].difference(j).issubset(self._parents[j]) and \
+            self._children[j].difference(i).issubset(self._children[i])
+
+    def convergence_plots(self, up_to = None):
+        if up_to is None:
+            up_to = self._n
+        up_to = min(self._n, up_to)
+        x = np.arange(up_to)
+        fig, axs = plt.subplots(1,2)
+
+        axs[0].plot(x, self._arratio[:up_to])
+        axs[0].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5, linewidth=0)
+        axs[0].set_xlabel('Iteration number')
+        axs[0].set_ylabel('Accept/reject ratio')
+
+        axs[1].plot(x,self._avg_nedges[:up_to])
+        axs[1].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5, linewidth=0)
+        axs[1].set_xlabel('Iteration number')
+        axs[1].set_ylabel('Moving average number of edges')
+
+        plt.tight_layout()
+        plt.show()
+    
+    def heatmap(self, data: np.ndarray, row_labels: list = None, col_labels: list = None):
+        if row_labels is None:
+            row_labels = col_labels
+        if col_labels is None:
+            col_labels = row_labels
+
+        ax = plt.gca()
+
+        # Plot the heatmap
+        sns.heatmap(data, annot=True, cmap='viridis', fmt='.2f', cbar=True, ax=ax)
+
+        # Set row and column labels
+        if row_labels is not None and col_labels is not None:
+            ax.set_xticklabels(col_labels, rotation=45, ha='right')
+            ax.set_yticklabels(row_labels, rotation=0, ha='right')
+
+        plt.show()
+
 class NEMCMC_poset:
     def __init__(self, nem: nem, init: np.ndarray = None, n: int = 1e5, burn_in: int = 1e4):
         
         self._nem = nem
         self._nactions = nem._nactions
         if init is not None:
-            self._curr = init.copy()
+            self._curr = init.copy().astype('B')
         else:
-            self._curr = np.eye(self._nactions)
+            self._curr = np.eye(self._nactions,dtype='B')
         np.fill_diagonal(self._curr, 0) #This is so parents/children/neighbours are computed properly below
         self._n = int(n)
         self._burn_in = int(burn_in)
@@ -198,7 +431,7 @@ class NEMCMC_poset:
         np.fill_diagonal(self._curr,1)
 
         #This line adds a null action column, currently by default
-        self._curr = np.c_[self._curr, np.zeros((self._nactions, 1))]
+        self._curr = np.c_[self._curr, np.zeros((self._nactions, 1),dtype='B')]
         
         curr_post = nem._logmarginalposterior(self._curr)
         i = 0
