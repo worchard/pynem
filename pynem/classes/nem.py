@@ -547,11 +547,14 @@ class NEMCMC:
                  restarts: int = 0, random_init: bool = True, cycles: bool = True, a: float = 1,
                  b: float = 1):
         self._nem = nem
-        self._init = init.copy().astype('B')
+        if init is not None:
+            self._init = init.copy().astype('B')
         self._nactions = nem._nactions
         self._restarts = restarts
-        self._n = n
-        self._burn_in = burn_in
+        self._n = int(n)
+        self._burn_in = int(burn_in)
+        self._a = a
+        self._b = b
 
         if self._restarts > 0:
             self._out_list = []
@@ -603,6 +606,61 @@ class NEMCMC:
         permute = np.arange(n)
         np.random.shuffle(permute)
         return m[permute,:][:,permute]
+    
+    def avg_edge_number_plot(self,start: int = 0, end: int = None):
+        if end is None:
+            end = self._n
+        end = min(self._n,end)
+        x = np.arange(start,end)
+        if self._restarts > 0:
+            for i in range(self._restarts):
+                plt.plot(x,self._avg_nedges_list[i][start:end],label=f'restart {i}')
+        else:
+            plt.plot(x,self._avg_nedges[start:end])
+        if end > self._burn_in:
+            plt.axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+        plt.xlabel('Iteration number')
+        plt.ylabel('Moving average number of edges')
+        plt.legend()
+        plt.show()
+
+    def convergence_plots(self, up_to = None):
+        if up_to is None:
+            up_to = self._n
+        up_to = min(self._n, up_to)
+        x = np.arange(up_to)
+        fig, axs = plt.subplots(1,2)
+
+        axs[0].plot(x, self._arratio[:up_to])
+        axs[0].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5, linewidth=0)
+        axs[0].set_xlabel('Iteration number')
+        axs[0].set_ylabel('Accept/reject ratio')
+
+        axs[1].plot(x,self._avg_nedges[:up_to])
+        axs[1].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5, linewidth=0)
+        axs[1].set_xlabel('Iteration number')
+        axs[1].set_ylabel('Moving average number of edges')
+
+        plt.tight_layout()
+        plt.show()
+    
+    def heatmap(self, data: np.ndarray, row_labels: list = None, col_labels: list = None):
+        if row_labels is None:
+            row_labels = col_labels
+        if col_labels is None:
+            col_labels = row_labels
+
+        ax = plt.gca()
+
+        # Plot the heatmap
+        sns.heatmap(data, annot=True, cmap='viridis', fmt='.2f', cbar=True, ax=ax)
+
+        # Set row and column labels
+        if row_labels is not None and col_labels is not None:
+            ax.set_xticklabels(col_labels, rotation=45, ha='right')
+            ax.set_yticklabels(row_labels, rotation=0, ha='right')
+
+        plt.show()
 
 class JointNEMCMC:
     def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray] = None, init_meta: np.ndarray = None, init_nus: List[float] = None,
@@ -990,14 +1048,14 @@ class JointNEMCMC:
             axs[k].plot(x,self._avg_nedges_graphs[k][start:end])
             if end > self._burn_in:
                 axs[k].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
-                axs[k].set_xlabel('Iteration number')
-                axs[k].set_ylabel(f'Moving average number of edges for graph {k}')
+            axs[k].set_xlabel('Iteration number')
+            axs[k].set_ylabel(f'Moving average number of edges for graph {k}')
         
         axs[self._K].plot(x,self._avg_nedges_meta[start:end])
         if end > self._burn_in:
             axs[self._K].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
-            axs[self._K].set_xlabel('Iteration number')
-            axs[self._K].set_ylabel(f'Moving average number of edges for meta graph')
+        axs[self._K].set_xlabel('Iteration number')
+        axs[self._K].set_ylabel(f'Moving average number of edges for meta graph')
 
         plt.tight_layout()
         plt.show()
