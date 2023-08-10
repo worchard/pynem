@@ -607,7 +607,24 @@ class NEMCMC:
         np.random.shuffle(permute)
         return m[permute,:][:,permute]
     
-    def avg_edge_number_plot(self,start: int = 0, end: int = None):
+    def ar_ratio_plot(self,start: int = 0, end: int = None):
+        if end is None:
+            end = self._n
+        end = min(self._n,end)
+        x = np.arange(start,end)
+        if self._restarts > 0:
+            for i in range(self._restarts):
+                plt.plot(x,self._arratio_list[i][start:end],label=f'restart {i}')
+        else:
+            plt.plot(x,self._arratio[start:end])
+        if end > self._burn_in:
+            plt.axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+        plt.xlabel('Iteration number')
+        plt.ylabel('Accept/reject ratio')
+        plt.legend()
+        plt.show()
+    
+    def average_edge_number_plot(self,start: int = 0, end: int = None):
         if end is None:
             end = self._n
         end = min(self._n,end)
@@ -622,26 +639,6 @@ class NEMCMC:
         plt.xlabel('Iteration number')
         plt.ylabel('Moving average number of edges')
         plt.legend()
-        plt.show()
-
-    def convergence_plots(self, up_to = None):
-        if up_to is None:
-            up_to = self._n
-        up_to = min(self._n, up_to)
-        x = np.arange(up_to)
-        fig, axs = plt.subplots(1,2)
-
-        axs[0].plot(x, self._arratio[:up_to])
-        axs[0].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5, linewidth=0)
-        axs[0].set_xlabel('Iteration number')
-        axs[0].set_ylabel('Accept/reject ratio')
-
-        axs[1].plot(x,self._avg_nedges[:up_to])
-        axs[1].axvspan(xmin = 0, xmax = self._burn_in, color='lightgray', alpha=0.5, linewidth=0)
-        axs[1].set_xlabel('Iteration number')
-        axs[1].set_ylabel('Moving average number of edges')
-
-        plt.tight_layout()
         plt.show()
     
     def heatmap(self, data: np.ndarray, row_labels: list = None, col_labels: list = None):
