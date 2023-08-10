@@ -544,8 +544,65 @@ class NEMCMC_poset:
 
 class NEMCMC:
     def __init__(self, nem: nem, init: np.ndarray = None, n: int = 1e5, burn_in: int = 1e4, 
-                 restarts: int = 0, random_init: bool = True, cycles: bool = True):
-        raise NotImplementedError
+                 restarts: int = 0, random_init: bool = True, cycles: bool = True, a: float = 1,
+                 b: float = 1):
+        self._nem = nem
+        self._init = init.copy().astype('B')
+        self._nactions = nem._nactions
+        self._restarts = restarts
+        self._n = n
+        self._burn_in = burn_in
+
+        if self._restarts > 0:
+            self._out_list = []
+            self._arratio_list = []
+            self._avg_nedges_list = []
+            self._init_list = []
+
+            for i in range(self._restarts):
+                if init is not None:
+                    self._init_list.append(self._init)
+                elif random_init:
+                    edge_probability = np.random.beta(self._a, self._b)
+                    self._init_list.append(self.generate_random_dag_transitive_closure(self._nactions,edge_probability))
+                else:
+                    self._init_list.append(np.eye(self._nactions,dtype='B'))
+                if cycles:
+                    out = NEMCMC_preorder(self._nem,self._init_list[i],self._n,self._burn_in)
+                else:
+                    out = NEMCMC_poset(self._nem,self._init_list[i],self._n,self._burn_in)
+                self._out_list.append(out._out)
+                self._arratio_list.append(out._arratio)
+                self._avg_nedges_list.append(out._avg_nedges)
+        else:
+            if self._init is None and random_init:
+                edge_probability = np.random.beta(self._a, self._b)
+                self._init = self.generate_random_dag_transitive_closure(self._nactions,edge_probability)
+            elif self._init is None and not random_init:
+                self._init = np.eye(self._nactions,dtype='B')
+            if cycles:
+                out = NEMCMC_preorder(self._nem,self._init,self._n,self._burn_in)
+            else:
+                out = NEMCMC_poset(self._nem,self._init,self._n,self._burn_in)
+            self._out = out._out
+            self._arratio = out._arratio
+            self._avg_nedges = out._avg_nedges
+
+    def generate_random_dag_transitive_closure(self, n: int, edge_probability: float = None):
+        m = np.eye(n,dtype='B')
+        parents = defaultdict(set)
+        children = defaultdict(set)
+        for i in range(n):
+            for j in range(i,n):
+                if np.random.uniform() <= edge_probability:
+                    m[i,j] = 1
+                    parents[j].add(i)
+        for i in range(n-1,-1,-1):
+            for j in parents[i]:
+                m[j,:] |= m[i,:]
+        permute = np.arange(n)
+        np.random.shuffle(permute)
+        return m[permute,:][:,permute]
 
 class JointNEMCMC:
     def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray] = None, init_meta: np.ndarray = None, init_nus: List[float] = None,
