@@ -226,7 +226,7 @@ class NEMCMC_preorder:
             self._curr[i,j] = v
             prop_post = nem._logmarginalposterior(self._curr)
             unif = np.random.uniform()
-            if unif <= self.accept(prop_post, curr_post):
+            if np.log(unif) < prop_post - curr_post:
                 curr_post = prop_post
                 self.update_current(change)
                 accepts += 1
@@ -340,9 +340,6 @@ class NEMCMC_preorder:
                 self._neighbours.add((i,a,'s'))
                 self._neighbours.add((a,i,'s'))
 
-    def accept(self, proposal: float, current: float):
-        return min(1, np.exp(proposal - current))
-
     def can_insert(self, i: Union[int,frozenset], j: Union[int,frozenset]):
         return i not in self._parents[j] and j not in self._parents[i] and \
             self._parents[i].issubset(self._parents[j]) and self._children[j].issubset(self._children[i])
@@ -442,7 +439,7 @@ class NEMCMC_poset:
             unif = np.random.uniform()
             self._curr[change[0], change[1]] = change[2]
             prop_post = nem._logmarginalposterior(self._curr)
-            if unif <= self.accept(prop_post, curr_post):
+            if np.log(unif) < prop_post - curr_post:
                 curr_post = prop_post
                 self.update_current(change)
                 accepts += 1
@@ -493,9 +490,6 @@ class NEMCMC_poset:
                 self._neighbours.add((j,node,0))
             else:
                 self._neighbours.discard((j,node,0))
-
-    def accept(self, proposal: float, current: float):
-        return min(1, np.exp(proposal - current))
 
     def can_insert(self, i:int ,j:int):
         return not self._curr[i,j] and not self._curr[j,i] and \
@@ -578,10 +572,10 @@ class NEMCMC:
                 self._arratio_list.append(out._arratio)
                 self._avg_nedges_list.append(out._avg_nedges)
         else:
-            if self._init is None and random_init:
+            if init is None and random_init:
                 edge_probability = np.random.beta(self._a, self._b)
                 self._init = self.generate_random_dag_transitive_closure(self._nactions,edge_probability)
-            elif self._init is None and not random_init:
+            elif init is None and not random_init:
                 self._init = np.eye(self._nactions,dtype='B')
             if cycles:
                 out = NEMCMC_preorder(self._nem,self._init,self._n,self._burn_in)
@@ -621,7 +615,8 @@ class NEMCMC:
             plt.axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
         plt.xlabel('Iteration number')
         plt.ylabel('Accept/reject ratio')
-        plt.legend()
+        if self._restarts > 0:
+            plt.legend()
         plt.show()
     
     def average_edge_number_plot(self,start: int = 0, end: int = None):
@@ -638,7 +633,8 @@ class NEMCMC:
             plt.axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
         plt.xlabel('Iteration number')
         plt.ylabel('Moving average number of edges')
-        plt.legend()
+        if self._restarts > 0:
+            plt.legend()
         plt.show()
     
     def heatmap(self, data: np.ndarray, row_labels: list = None, col_labels: list = None):
