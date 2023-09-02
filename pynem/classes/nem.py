@@ -746,10 +746,10 @@ class JointNEMCMC:
         np.fill_diagonal(self._curr_meta, 1)
         
         curr_graph_posts = [nem_list[k]._logmarginalposterior(self._curr_graphs[k])-np.exp(self._curr_nus[k])*self._hamming_dists[k] for k in range(self._K)]
-        curr_nu_probs = [self.laplace(self._curr_nus[k], self._hamming_dists[k])+self.nu_gamma(self._curr_nus[k]) for k in range(self._K)]
+        curr_nu_probs = [self.laplace(np.exp(self._curr_nus[k]), self._hamming_dists[k])+self.nu_gamma(np.exp(self._curr_nus[k])) for k in range(self._K)]
         curr_meta_prob = 0
         for k in range(self._K):
-            curr_meta_prob += self.laplace(self._curr_nus[k], self._hamming_dists[k])
+            curr_meta_prob += -1*np.exp(self._curr_nus[k])*self._hamming_dists[k]
         if self._meta_prior:
             curr_meta_prob += self.compute_meta_prior(self._curr_meta)
 
@@ -779,11 +779,11 @@ class JointNEMCMC:
                     prop_hamming = self._hamming_dists[k] - 1
                 else:
                     prop_hamming = self._hamming_dists[k] + 1
-                prop_post = nem_list[k]._logmarginalposterior(proposal) - self._curr_nus[k]*prop_hamming
-                if unif <= min(1, np.exp(prop_post - curr_graph_posts[k])):
+                prop_post = nem_list[k]._logmarginalposterior(proposal) - np.exp(self._curr_nus[k])*prop_hamming
+                if np.log(unif) < prop_post - curr_graph_posts[k]:
                     curr_graph_posts[k] = prop_post
-                    curr_nu_probs[k] += self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming)
-                    curr_meta_prob += self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming)
+                    curr_nu_probs[k] += np.exp(self._curr_nus[k])*(self._hamming_dists[k] - prop_hamming)
+                    curr_meta_prob += np.exp(self._curr_nus[k])*(self._hamming_dists[k] - prop_hamming)
                     self._curr_graphs[k] = proposal
                     self._hamming_dists[k] = prop_hamming
                     self.update_current(change, k)
@@ -807,13 +807,14 @@ class JointNEMCMC:
             #Proposals for nu parameters
             for k in range(self._K):
                 unif = np.random.uniform()
-                proposal = np.exp(np.random.normal(np.log(self._curr_nus[k]), self._sigma))
-                prop_prob = self.laplace(proposal,self._hamming_dists[k]) + self.nu_gamma(proposal)
-                if unif <= min(1, np.exp(prop_prob - curr_nu_probs[k])):
+                proposal = np.random.normal(self._curr_nus[k], self._sigma)
+                exp_nu = np.exp(proposal)
+                prop_prob = self.laplace(exp_nu,self._hamming_dists[k]) + self.nu_gamma(exp_nu)
+                if np.log(unif) < prop_prob - curr_nu_probs[k]:
                     curr_nu_probs[k] = prop_prob
-                    curr_graph_posts[k] += self._hamming_dists[k]*(self._curr_nus[k] - proposal)
-                    curr_meta_prob -= self.laplace(self._curr_nus[k], self._hamming_dists[k])
-                    curr_meta_prob += self.laplace(proposal, self._hamming_dists[k])
+                    curr_graph_posts[k] += self._hamming_dists[k]*(np.exp(self._curr_nus[k]) - exp_nu)
+                    curr_meta_prob -= self.laplace(np.exp(self._curr_nus[k]), self._hamming_dists[k])
+                    curr_meta_prob += self.laplace(exp_nu, self._hamming_dists[k])
                     self._curr_nus[k] = proposal
                     nu_accepts[k] += 1
                 self._nu_arratios[k].append(nu_accepts[k]/(i+1))
@@ -832,15 +833,15 @@ class JointNEMCMC:
                     prop_hamming_dists.append(self._hamming_dists[k]-1)
                 else:
                     prop_hamming_dists.append(self._hamming_dists[k]+1)
-                prop_prob += self.laplace(self._curr_nus[k], prop_hamming_dists[k])
+                prop_prob += -1*np.exp(self._curr_nus[k])*prop_hamming_dists[k]
             if self._meta_prior:
-                prop_prob += self.compute_meta_prior(self._curr_meta)
-            if unif <= min(1,np.exp(prop_prob-curr_meta_prob)):
+                prop_prob += self.compute_meta_prior(proposal)
+            if np.log(unif) < prop_prob-curr_meta_prob:
                 curr_meta_prob = prop_prob
                 self._curr_meta = proposal
                 for k in range(self._K):
-                    curr_graph_posts[k] += self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming_dists[k])
-                    curr_nu_probs[k] += self._curr_nus[k]*(self._hamming_dists[k] - prop_hamming_dists[k])
+                    curr_graph_posts[k] += np.exp(self._curr_nus[k])*(self._hamming_dists[k] - prop_hamming_dists[k])
+                    curr_nu_probs[k] += np.exp(self._curr_nus[k])*(self._hamming_dists[k] - prop_hamming_dists[k])
                 self._hamming_dists = prop_hamming_dists
                 self.update_current_meta(change)
                 meta_accepts += 1
@@ -877,11 +878,11 @@ class JointNEMCMC:
         else:
             return self._phi_distr(model)
     
-    def laplace(self, nu, hamming_dist):
-        return -1*np.exp(nu)*hamming_dist-self._nactions*(self._nactions-1)*np.log1p(np.exp(-1*np.exp(nu)))
+    def laplace(self, exp_nu, hamming_dist):
+        return -1*exp_nu*hamming_dist-self._nactions*(self._nactions-1)*np.log1p(np.exp(-1*exp_nu))
     
-    def nu_gamma(self,nu):
-        return gamma.logpdf(nu,a = self._shape, scale = 1/self._rate) + nu
+    def nu_gamma(self,exp_nu):
+        return exp_nu*(self._shape - 1) - self._rate*exp_nu + exp_nu
     
     def update_current(self, change: tuple, k: int):
         self._neighbours_list[k].discard(change)
