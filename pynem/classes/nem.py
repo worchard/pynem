@@ -687,9 +687,9 @@ class JointNEMCMC:
         else:
             self._curr_meta = init_meta.copy()
         if init_nus is None:
-            self._curr_nus = np.random.gamma(shape=self._shape, scale=1/self._rate, size=self._K)
+            self._curr_nus = np.log(np.random.gamma(shape=self._shape, scale=1/self._rate, size=self._K))
         else:
-            self._curr_nus = init_nus.copy()
+            self._curr_nus = np.log(init_nus.copy())
         for c in self._curr_graphs:
             np.fill_diagonal(c, 0)
         np.fill_diagonal(self._curr_meta, 0)
@@ -745,7 +745,7 @@ class JointNEMCMC:
             np.fill_diagonal(c, 1)
         np.fill_diagonal(self._curr_meta, 1)
         
-        curr_graph_posts = [nem_list[k]._logmarginalposterior(self._curr_graphs[k])-self._curr_nus[k]*self._hamming_dists[k] for k in range(self._K)]
+        curr_graph_posts = [nem_list[k]._logmarginalposterior(self._curr_graphs[k])-np.exp(self._curr_nus[k])*self._hamming_dists[k] for k in range(self._K)]
         curr_nu_probs = [self.laplace(self._curr_nus[k], self._hamming_dists[k])+self.nu_gamma(self._curr_nus[k]) for k in range(self._K)]
         curr_meta_prob = 0
         for k in range(self._K):
@@ -878,7 +878,7 @@ class JointNEMCMC:
             return self._phi_distr(model)
     
     def laplace(self, nu, hamming_dist):
-        return -1*nu*hamming_dist-self._nactions*(self._nactions-1)*np.log(1+np.exp(-1*nu))
+        return -1*np.exp(nu)*hamming_dist-self._nactions*(self._nactions-1)*np.log1p(np.exp(-1*np.exp(nu)))
     
     def nu_gamma(self,nu):
         return gamma.logpdf(nu,a = self._shape, scale = 1/self._rate) + nu
