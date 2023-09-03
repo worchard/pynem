@@ -1079,23 +1079,25 @@ class JointNEMCMC:
                  shape: float = 1, rate: float = 2, compare: List[Tuple[int,int]] = None, 
                  restarts: int = 0, random_init: bool = True, cycles: bool = True, a: float = 1,
                  b: float = 1):
-        raise NotImplementedError
-        self._nem = nem
-        if init is not None:
-            self._init = init.copy().astype('B')
-        self._nactions = nem._nactions
+        
         self._restarts = restarts
         self._n = int(n)
         self._burn_in = int(burn_in)
         self._a = a
         self._b = b
-
+        raise NotImplementedError
         if self._restarts > 0:
-            self._out_list = []
-            self._arratio_list = []
-            self._avg_nedges_list = []
-            self._init_list = []
-
+            self._out_graphs_list = []
+            self._out_meta_list = []
+            self._out_nus_list = []
+            self._graph_arratios_list = []
+            self._nu_arratios_list = []
+            self._meta_arratios_list = []
+            self._avg_nedges_graphs_list = []
+            self._avg_nedges_meta_list = []
+            self._init_graphs_list = []
+            self._init_meta_list = []
+        
             for i in range(self._restarts):
                 if init is not None:
                     self._init_list.append(self._init)
