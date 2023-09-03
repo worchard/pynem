@@ -840,8 +840,9 @@ class JointNEMCMC:
                 curr_meta_prob = prop_prob
                 self._curr_meta = proposal
                 for k in range(self._K):
-                    curr_graph_posts[k] += np.exp(self._curr_nus[k])*(self._hamming_dists[k] - prop_hamming_dists[k])
-                    curr_nu_probs[k] += np.exp(self._curr_nus[k])*(self._hamming_dists[k] - prop_hamming_dists[k])
+                    graph_nu_score_update = np.exp(self._curr_nus[k])*(self._hamming_dists[k] - prop_hamming_dists[k])
+                    curr_graph_posts[k] += graph_nu_score_update
+                    curr_nu_probs[k] += graph_nu_score_update
                 self._hamming_dists = prop_hamming_dists
                 self.update_current_meta(change)
                 meta_accepts += 1
