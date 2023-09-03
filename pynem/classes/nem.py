@@ -655,9 +655,9 @@ class NEMCMC:
 
         plt.show()
 
-class JointNEMCMC:
+class JointNEMCMC_poset:
     def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray] = None, init_meta: np.ndarray = None, init_nus: List[float] = None,
-                 n: int = 1e5, burn_in: int = 1e4, meta_prior: np.ndarray = None, lambda_reg: float = 0, sigma: float = 10, 
+                 n: int = 1e5, burn_in: int = 1e4, meta_prior: np.ndarray = None, lambda_reg: float = 0, sigma: float = 1, 
                  shape: float = 1, rate: float = 2, compare: List[Tuple[int,int]] = None):
         self._sigma = sigma
         self._shape = shape
@@ -689,7 +689,7 @@ class JointNEMCMC:
         if init_nus is None:
             self._curr_nus = np.log(np.random.gamma(shape=self._shape, scale=1/self._rate, size=self._K))
         else:
-            self._curr_nus = np.log(init_nus.copy())
+            self._curr_nus = init_nus.copy()
         for c in self._curr_graphs:
             np.fill_diagonal(c, 0)
         np.fill_diagonal(self._curr_meta, 0)
@@ -1053,6 +1053,128 @@ class JointNEMCMC:
         axs[self._K].set_ylabel(f'Moving average number of edges for meta graph')
 
         plt.tight_layout()
+        plt.show()
+    
+    def heatmap(self, data: np.ndarray, row_labels: list = None, col_labels: list = None):
+        if row_labels is None:
+            row_labels = col_labels
+        if col_labels is None:
+            col_labels = row_labels
+
+        ax = plt.gca()
+
+        # Plot the heatmap
+        sns.heatmap(data, annot=True, cmap='viridis', fmt='.2f', cbar=True, ax=ax)
+
+        # Set row and column labels
+        if row_labels is not None and col_labels is not None:
+            ax.set_xticklabels(col_labels, rotation=45, ha='right')
+            ax.set_yticklabels(row_labels, rotation=0, ha='right')
+
+        plt.show()
+
+class JointNEMCMC:
+    def __init__(self, nem_list: List[nem], init_graphs: List[np.ndarray] = None, init_meta: np.ndarray = None, init_nus: List[float] = None,
+                 n: int = 1e5, burn_in: int = 1e4, meta_prior: np.ndarray = None, lambda_reg: float = 0, sigma: float = 1, 
+                 shape: float = 1, rate: float = 2, compare: List[Tuple[int,int]] = None, 
+                 restarts: int = 0, random_init: bool = True, cycles: bool = True, a: float = 1,
+                 b: float = 1):
+        raise NotImplementedError
+        self._nem = nem
+        if init is not None:
+            self._init = init.copy().astype('B')
+        self._nactions = nem._nactions
+        self._restarts = restarts
+        self._n = int(n)
+        self._burn_in = int(burn_in)
+        self._a = a
+        self._b = b
+
+        if self._restarts > 0:
+            self._out_list = []
+            self._arratio_list = []
+            self._avg_nedges_list = []
+            self._init_list = []
+
+            for i in range(self._restarts):
+                if init is not None:
+                    self._init_list.append(self._init)
+                elif random_init:
+                    edge_probability = np.random.beta(self._a, self._b)
+                    self._init_list.append(self.generate_random_dag_transitive_closure(self._nactions,edge_probability))
+                else:
+                    self._init_list.append(np.eye(self._nactions,dtype='B'))
+                if cycles:
+                    out = NEMCMC_preorder(self._nem,self._init_list[i],self._n,self._burn_in)
+                else:
+                    out = NEMCMC_poset(self._nem,self._init_list[i],self._n,self._burn_in)
+                self._out_list.append(out._out)
+                self._arratio_list.append(out._arratio)
+                self._avg_nedges_list.append(out._avg_nedges)
+        else:
+            if init is None and random_init:
+                edge_probability = np.random.beta(self._a, self._b)
+                self._init = self.generate_random_dag_transitive_closure(self._nactions,edge_probability)
+            elif init is None and not random_init:
+                self._init = np.eye(self._nactions,dtype='B')
+            if cycles:
+                out = NEMCMC_preorder(self._nem,self._init,self._n,self._burn_in)
+            else:
+                out = NEMCMC_poset(self._nem,self._init,self._n,self._burn_in)
+            self._out = out._out
+            self._arratio = out._arratio
+            self._avg_nedges = out._avg_nedges
+
+    def generate_random_dag_transitive_closure(self, n: int, edge_probability: float = None):
+        m = np.eye(n,dtype='B')
+        parents = defaultdict(set)
+        children = defaultdict(set)
+        for i in range(n):
+            for j in range(i,n):
+                if np.random.uniform() <= edge_probability:
+                    m[i,j] = 1
+                    parents[j].add(i)
+        for i in range(n-1,-1,-1):
+            for j in parents[i]:
+                m[j,:] |= m[i,:]
+        permute = np.arange(n)
+        np.random.shuffle(permute)
+        return m[permute,:][:,permute]
+    
+    def ar_ratio_plot(self,start: int = 0, end: int = None):
+        if end is None:
+            end = self._n
+        end = min(self._n,end)
+        x = np.arange(start,end)
+        if self._restarts > 0:
+            for i in range(self._restarts):
+                plt.plot(x,self._arratio_list[i][start:end],label=f'restart {i}')
+        else:
+            plt.plot(x,self._arratio[start:end])
+        if end > self._burn_in:
+            plt.axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+        plt.xlabel('Iteration number')
+        plt.ylabel('Accept/reject ratio')
+        if self._restarts > 0:
+            plt.legend()
+        plt.show()
+    
+    def average_edge_number_plot(self,start: int = 0, end: int = None):
+        if end is None:
+            end = self._n
+        end = min(self._n,end)
+        x = np.arange(start,end)
+        if self._restarts > 0:
+            for i in range(self._restarts):
+                plt.plot(x,self._avg_nedges_list[i][start:end],label=f'restart {i}')
+        else:
+            plt.plot(x,self._avg_nedges[start:end])
+        if end > self._burn_in:
+            plt.axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+        plt.xlabel('Iteration number')
+        plt.ylabel('Moving average number of edges')
+        if self._restarts > 0:
+            plt.legend()
         plt.show()
     
     def heatmap(self, data: np.ndarray, row_labels: list = None, col_labels: list = None):
