@@ -812,9 +812,9 @@ class JointNEMCMC:
                 prop_prob = self.laplace(exp_nu,self._hamming_dists[k]) + self.nu_gamma(exp_nu)
                 if np.log(unif) < prop_prob - curr_nu_probs[k]:
                     curr_nu_probs[k] = prop_prob
-                    curr_graph_posts[k] += self._hamming_dists[k]*(np.exp(self._curr_nus[k]) - exp_nu)
-                    curr_meta_prob -= self.laplace(np.exp(self._curr_nus[k]), self._hamming_dists[k])
-                    curr_meta_prob += self.laplace(exp_nu, self._hamming_dists[k])
+                    graph_meta_score_update = self._hamming_dists[k]*(np.exp(self._curr_nus[k]) - exp_nu)
+                    curr_graph_posts[k] += graph_meta_score_update
+                    curr_meta_prob += graph_meta_score_update
                     self._curr_nus[k] = proposal
                     nu_accepts[k] += 1
                 self._nu_arratios[k].append(nu_accepts[k]/(i+1))
