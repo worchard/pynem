@@ -1117,7 +1117,7 @@ class JointNEMCMC:
             self._meta_arratio_list = []
             self._avg_nedges_graphs_list = []
             self._avg_nedges_meta_list = []
-            self._init_graphs_list = [[] for k in range(self._restarts)]
+            self._init_graphs_list = []
             self._init_meta_list = []
         
             for i in range(self._restarts):
