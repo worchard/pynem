@@ -1080,52 +1080,108 @@ class JointNEMCMC:
                  restarts: int = 0, random_init: bool = True, cycles: bool = True, a: float = 1,
                  b: float = 1):
         
+        self._K = len(nem_list)
+        self._sigma = sigma
+        self._shape = shape
+        self._rate = rate
+        self._lambda_reg = lambda_reg
+        self._nactions = nem_list[0]._nactions
+        self._compare = None
+        if compare is not None:
+            self._compare = compare.copy()
+        if meta_prior is None:
+            if self._lambda_reg > 0:
+                self._meta_prior = np.eye(self.nactions)
+            else:
+                self._meta_prior = None
+        elif meta_prior.shape[0] == self._nactions and meta_prior.shape[1] == meta_prior.shape[0]:
+            self._meta_prior = meta_prior.copy()
+        else:
+            raise ValueError("Dimensions of meta_prior don't match input NEMs!")
+        if init_graphs is not None:
+            self._init_graphs = [init_graphs[k].copy() for k in range(self._K)]
+        if init_meta is not None:
+            self._init_meta = init_meta.copy()
         self._restarts = restarts
         self._n = int(n)
         self._burn_in = int(burn_in)
         self._a = a
         self._b = b
-        raise NotImplementedError
+        
         if self._restarts > 0:
             self._out_graphs_list = []
             self._out_meta_list = []
             self._out_nus_list = []
             self._graph_arratios_list = []
             self._nu_arratios_list = []
-            self._meta_arratios_list = []
+            self._meta_arratio_list = []
             self._avg_nedges_graphs_list = []
             self._avg_nedges_meta_list = []
-            self._init_graphs_list = []
+            self._init_graphs_list = [[] for k in range(self._restarts)]
             self._init_meta_list = []
         
             for i in range(self._restarts):
-                if init is not None:
-                    self._init_list.append(self._init)
+                if init_graphs is not None:
+                    self._init_graphs_list.append(self._init_graphs)
+                elif random_init:
+                    for k in range(self._K):
+                        edge_probability = np.random.beta(self._a, self._b)
+                        self._init_graphs_list[i].append(self.generate_random_dag_transitive_closure(self._nactions,edge_probability))
+                else:
+                    self._init_graphs_list[i].append(np.eye(self._nactions,dtype='B'))
+                if init_meta is not None:
+                    self._init_meta_list.append(self._init_meta)
                 elif random_init:
                     edge_probability = np.random.beta(self._a, self._b)
-                    self._init_list.append(self.generate_random_dag_transitive_closure(self._nactions,edge_probability))
+                    self._init_meta_list.append(self.generate_random_dag_transitive_closure(self._nactions,edge_probability))
                 else:
-                    self._init_list.append(np.eye(self._nactions,dtype='B'))
+                    self._init_meta_list.append(np.eye(self._nactions,dtype='B'))
                 if cycles:
-                    out = NEMCMC_preorder(self._nem,self._init_list[i],self._n,self._burn_in)
+                    raise NotImplementedError
+                    out = JointNEMCMC_preorder(self._nem,self._init_list[i],self._n,self._burn_in)
                 else:
-                    out = NEMCMC_poset(self._nem,self._init_list[i],self._n,self._burn_in)
-                self._out_list.append(out._out)
-                self._arratio_list.append(out._arratio)
-                self._avg_nedges_list.append(out._avg_nedges)
+                    out = JointNEMCMC_poset(nem_list,self._init_graphs_list[i],self._init_meta_list[i],
+                                            init_nus = init_nus, meta_prior=meta_prior,
+                                            n = self._n,burn_in = self._burn_in, lambda_reg=lambda_reg,
+                                            sigma=sigma,shape=shape,rate=rate,compare=compare)
+                self._out_graphs_list.append(out._out_graphs)
+                self._out_meta_list.append(out._out_meta)
+                self._out_nus_list.append(out._out_nus)
+                self._graph_arratios_list.append(out._graph_arratios)
+                self._meta_arratio_list.append(out._meta_arratio)
+                self._nu_arratios_list.append(out._nu_arratios)
+                self._avg_nedges_graphs_list.append(out._avg_nedges_graphs)
+                self._avg_nedges_meta_list.append(out._avg_nedges_meta)
+
         else:
-            if init is None and random_init:
+            if init_graphs is None and random_init:
+                self._init_graphs = []
+                for k in range(self._K):
+                    edge_probability = np.random.beta(self._a, self._b)
+                    self._init_graphs.append(self.generate_random_dag_transitive_closure(self._nactions,edge_probability))
+            elif init_graphs is None and not random_init:
+                self._init_graphs = [np.eye(self._nactions,dtype='B') for k in range(self._K)]
+            if init_meta is None and random_init:
                 edge_probability = np.random.beta(self._a, self._b)
-                self._init = self.generate_random_dag_transitive_closure(self._nactions,edge_probability)
-            elif init is None and not random_init:
-                self._init = np.eye(self._nactions,dtype='B')
+                self._init_meta = self.generate_random_dag_transitive_closure(self._nactions,edge_probability)
+            elif init_meta is None and not random_init:
+                self._init_meta = np.eye(self._nactions,dtype='B')
             if cycles:
-                out = NEMCMC_preorder(self._nem,self._init,self._n,self._burn_in)
+                raise NotImplementedError
+                out = JointNEMCMC_preorder(self._nem,self._init,self._n,self._burn_in)
             else:
-                out = NEMCMC_poset(self._nem,self._init,self._n,self._burn_in)
-            self._out = out._out
-            self._arratio = out._arratio
-            self._avg_nedges = out._avg_nedges
+                out = JointNEMCMC_poset(nem_list,self._init_graphs,self._init_meta,
+                                            init_nus = init_nus, meta_prior=meta_prior,
+                                            n = self._n,burn_in = self._burn_in, lambda_reg=lambda_reg,
+                                            sigma=sigma,shape=shape,rate=rate,compare=compare)
+            self._out_graphs = out._out_graphs
+            self._out_meta = out._out_meta
+            self._out_nus = out._out_nus
+            self._graph_arratios = out._graph_arratios
+            self._meta_arratio = out._meta_arratio
+            self._nu_arratios = out._nu_arratios
+            self._avg_nedges_graphs = out._avg_nedges_graphs
+            self._avg_nedges_meta = out._avg_nedges_meta
 
     def generate_random_dag_transitive_closure(self, n: int, edge_probability: float = None):
         m = np.eye(n,dtype='B')
@@ -1143,40 +1199,138 @@ class JointNEMCMC:
         np.random.shuffle(permute)
         return m[permute,:][:,permute]
     
-    def ar_ratio_plot(self,start: int = 0, end: int = None):
+    def nu_trace_plots(self,start: int = 0, end: int = None):
         if end is None:
-            end = self._n
-        end = min(self._n,end)
+            if self._restarts > 0:
+                end = len(self._out_nus_list[0][0])
+                end = min(len(self._out_nus_list[0][0]),end)
+            else:
+                end = len(self._out_nus[0])
+                end = min(len(self._out_nus[0]),end)
+        
         x = np.arange(start,end)
-        if self._restarts > 0:
-            for i in range(self._restarts):
-                plt.plot(x,self._arratio_list[i][start:end],label=f'restart {i}')
-        else:
-            plt.plot(x,self._arratio[start:end])
-        if end > self._burn_in:
-            plt.axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
-        plt.xlabel('Iteration number')
-        plt.ylabel('Accept/reject ratio')
+        fig, axs = plt.subplots(1,self._K)
+
+        for k in range(self._K):
+            if self._restarts > 0:
+                for i in range(self._restarts):
+                    axs[k].plot(x,self._out_nus_list[i][k][start:end],label=f'restart {i}')
+            else:
+                axs[k].plot(x,self._out_nus[k][start:end])
+            axs[k].set_xlabel('Iteration number')
+            axs[k].set_ylabel(f'nu {k}')
+
         if self._restarts > 0:
             plt.legend()
+        plt.tight_layout()
         plt.show()
     
-    def average_edge_number_plot(self,start: int = 0, end: int = None):
+    def nu_density_plots(self, start: int = 0, end: int = None):
+        if end is None:
+            if self._restarts > 0:
+                end = len(self._out_nus_list[0][0])
+                end = min(len(self._out_nus_list[0][0]),end)
+            else:
+                end = len(self._out_nus[0])
+                end = min(len(self._out_nus[0]),end)
+
+        if self._restarts > 0:
+            fig, axs = plt.subplots(self._restarts,1)
+            for i in range(self._restarts):
+                for k in range(self._K):
+                    sns.kdeplot(self._out_nus_list[i][k][start:end],fill=True,label=f'nu {k}',ax=axs[i])
+                axs[i].set_title(f'restart {i}')
+                axs[i].set_xlabel('nu')
+        else:
+            for k in range(self._K):
+                sns.kdeplot(self._out_nus[k][start:end],fill=True,label=f'nu {k}')
+            plt.xlabel('nu')
+        plt.legend()
+        plt.show()
+
+    def graph_ar_ratio_plots(self,start: int = 0, end: int = None):
         if end is None:
             end = self._n
         end = min(self._n,end)
         x = np.arange(start,end)
+        fig, axs = plt.subplots(1,self._K+1)
+        for k in range(self._K):
+            if self._restarts > 0:
+                for i in range(self._restarts):
+                    axs[k].plot(x,self._graph_arratios_list[i][k][start:end],label=f'restart {i}')
+            else:
+                axs[k].plot(x,self._graph_arratios[k][start:end])
+            if end > self._burn_in:
+                axs[k].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+                axs[k].set_xlabel('Iteration number')
+                axs[k].set_ylabel(f'Accept/reject ratio for graph {k}')
         if self._restarts > 0:
             for i in range(self._restarts):
-                plt.plot(x,self._avg_nedges_list[i][start:end],label=f'restart {i}')
+                axs[self._K].plot(x,self._meta_arratio_list[i][start:end],label=f'restart {i}')
         else:
-            plt.plot(x,self._avg_nedges[start:end])
+            axs[self._K].plot(x,self._meta_arratio[start:end])
         if end > self._burn_in:
-            plt.axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
-        plt.xlabel('Iteration number')
-        plt.ylabel('Moving average number of edges')
+            axs[self._K].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+            axs[self._K].set_xlabel('Iteration number')
+            axs[self._K].set_ylabel(f'Accept/reject ratio for meta graph')
         if self._restarts > 0:
             plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    def nu_ar_ratio_plots(self, start: int = 0, end: int = None):
+        if end is None:
+            end = self._n
+        end = min(self._n,end)
+        x = np.arange(start,end)
+        fig, axs = plt.subplots(1,self._K)
+
+        for k in range(self._K):
+            if self._restarts > 0:
+                for i in range(self._restarts):
+                    axs[k].plot(x,self._nu_arratios_list[i][k][start:end],label=f'restart {i}')
+            else:
+                axs[k].plot(x,self._nu_arratios[k][start:end])
+            if end > self._burn_in:
+                axs[k].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+                axs[k].set_xlabel('Iteration number')
+                axs[k].set_ylabel(f'Accept/reject ratio for nu {k}')
+
+        if self._restarts > 0:
+            plt.legend()
+        plt.tight_layout()
+        plt.show()
+    
+    def average_edge_number_plots(self, start: int = 0, end: int = None):
+        if end is None:
+            end = self._n
+        end = min(self._n,end)
+        x = np.arange(start,end)
+        fig, axs = plt.subplots(1,self._K+1)
+        for k in range(self._K):
+            if self._restarts > 0:
+                for i in range(self._restarts):
+                    axs[k].plot(x,self._avg_nedges_graphs_list[i][k][start:end],label=f'restart {i}')
+            else:
+                axs[k].plot(x,self._avg_nedges_graphs[k][start:end])
+            if end > self._burn_in:
+                axs[k].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+            axs[k].set_xlabel('Iteration number')
+            axs[k].set_ylabel(f'Moving average number of edges for graph {k}')
+        
+        if self._restarts > 0:
+            for i in range(self._restarts):
+                axs[self._K].plot(x,self._avg_nedges_meta_list[i][start:end],label=f'restart {i}')
+        else:
+            axs[self._K].plot(x,self._avg_nedges_meta[start:end])
+        if end > self._burn_in:
+            axs[self._K].axvspan(xmin=start,xmax=self._burn_in,color='lightgray', alpha = 0.5, linewidth = 0)
+        axs[self._K].set_xlabel('Iteration number')
+        axs[self._K].set_ylabel(f'Moving average number of edges for meta graph')
+
+        if self._restarts > 0:
+            plt.legend()
+        plt.tight_layout()
         plt.show()
     
     def heatmap(self, data: np.ndarray, row_labels: list = None, col_labels: list = None):
